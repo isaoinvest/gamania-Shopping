@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="preconnect" href="https://aframe.io" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link rel="preconnect" href="https://cdn.glitch.global" />
+    <link
+      rel="preload"
+      href="https://pub-ac80c6d0a305452bbe0bdfcec65b6a2c.r2.dev/aakkss.mp4"
+      as="video"
+      type="video/mp4"
+      crossorigin="anonymous"
+    />
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      /* --- 簡化後的科技感掃描UI樣式 --- */
+      #scanning-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 2; /* 確保在 AR 內容之上，但在按鈕之下 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none; /* 允許點擊穿透到下面的按鈕 */
+        background-color: rgba(0, 0, 0, 0.2); /* 保留半透明背景 */
+        opacity: 0;
+        transition: opacity 0.3s;
+        will-change: opacity;
+      }
+
+      #scanning-overlay.visible {
+        opacity: 1;
+      }
+
+      /* 主要掃描器容器 */
+      .tech-scanner {
+        width: 220px; /* 可以稍微調整大小 */
+        height: 220px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* 內部掃描框 */
+      .scanner-inner {
+        width: 200px; /* 內部框大小 */
+        height: 200px;
+        border: 2px solid rgba(0, 255, 255, 0.7); /* 邊框稍微變細一點 */
+        border-radius: 10px;
+        position: relative;
+        overflow: hidden; /* 限制掃描線在框內 */
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); /* 保留光暈效果 */
+      }
+
+      /* 掃描線 */
+      .scanner-line {
+        position: absolute;
+        height: 3px; /* 掃描線高度 */
+        width: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          #00ffff,
+          #00ffff,
+          transparent
+        );
+        top: 0;
+        animation: scan 2.5s linear infinite; /* 動畫速度微調 */
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.5); /* 光暈效果 */
+        will-change: transform;
+      }
+
+      /* 角落標記 */
+      .corner {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-color: rgba(0, 255, 255, 0.9);
+        border-style: solid;
+        border-width: 0;
+      }
+      .corner-top-left {
+        top: -2px;
+        left: -2px;
+        border-top-width: 3px;
+        border-left-width: 3px;
+      }
+      .corner-top-right {
+        top: -2px;
+        right: -2px;
+        border-top-width: 3px;
+        border-right-width: 3px;
+      }
+      .corner-bottom-left {
+        bottom: -2px;
+        left: -2px;
+        border-bottom-width: 3px;
+        border-left-width: 3px;
+      }
+      .corner-bottom-right {
+        bottom: -2px;
+        right: -2px;
+        border-bottom-width: 3px;
+        border-right-width: 3px;
+      }
+
+      /* 掃描文字 */
+      .scanning-text {
+        position: absolute;
+        bottom: -35px; /* 向上移動一點，因為移除了下面的點 */
+        left: 50%;
+        transform: translateX(-50%); /* 水平置中 */
+        width: 100%; /* 確保文字容器足夠寬 */
+        text-align: center; /* 文字置中 */
+        font-family: "Arial", sans-serif;
+        color: rgba(0, 255, 255, 0.9);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-size: 14px;
+        text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+      }
+
+      /* 持續播放按鈕樣式 */
+      .control-button {
+        position: relative; /* 確保按鈕可以被點擊 */
+        z-index: 1000; /* 確保按鈕在掃描UI之上 */
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        border: 2px solid rgba(0, 255, 255, 0.7);
+        border-radius: 50px;
+        padding: 10px 16px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        transition: all 0.3s ease;
+        pointer-events: auto; /* 確保按鈕可以接收事件 */
+        opacity: 0.9;
+        min-width: 100px;
+        justify-content: center;
+      }
+      .control-button:hover {
+        background-color: rgba(0, 0, 0, 0.8);
+        opacity: 1;
+      }
+      .control-button.active {
+        background-color: rgba(0, 195, 255, 0.3);
+      }
+
+      /* 控制按鈕群組 */
+      .control-buttons-container {
+        position: fixed;
+        bottom: 20px;
+        left: 0;
+        right: 0;
+        z-index: 1000; /* 確保按鈕在最上層 */
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        gap: 30px;
+        pointer-events: none; /* 容器本身不攔截事件 */
+      }
+      .control-buttons-container > * {
+        pointer-events: auto; /* 按鈕可以接收事件 */
+      }
+
+      /* 提示箭頭樣式 */
+      .hint-arrow {
+        position: fixed;
+        bottom: 70px; /* 調整箭頭位置，使其更靠近按鈕 */
+        left: 50%;
+        transform: translateX(-50%); /* 水平置中 */
+        width: 40px;
+        height: 40px;
+        z-index: 1001; /* 比按鈕高一點 */
+        opacity: 0;
+        animation: arrow-bounce 2s ease-in-out infinite,
+          arrow-fade-in 0.5s ease-in-out forwards;
+        pointer-events: none;
+      }
+      .hint-arrow svg {
+        width: 100%;
+        height: 100%;
+        fill: rgba(0, 255, 255, 0.9);
+        filter: drop-shadow(0 0 5px rgba(0, 255, 255, 0.5));
+        transform: rotate(180deg); /* 保持向下 */
+      }
+      /* 調整 transform-origin 和 translate 值以確保箭頭在中心點上下跳動 */
+      @keyframes arrow-bounce {
+        0%,
+        100% {
+          transform: translate(-50%, 0);
+        }
+        50% {
+          transform: translate(-50%, -10px);
+        }
+      }
+      @keyframes arrow-fade-in {
+        0% {
+          opacity: 0;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+      .hint-arrow.hidden {
+        display: none;
+      }
+
+      /* 動畫關鍵幀 (只保留 scan) */
+      @keyframes scan {
+        0% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(calc(200px - 3px));
+        } /* 調整移動距離以匹配框高和線高 */
+        100% {
+          transform: translateY(0px);
+        }
+      }
+
+      /* 中央影片容器樣式 */
+      #center-video-container {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1; /* 在掃描UI之下 */
+        display: none;
+        width: 80vw;
+        max-width: 640px;
+        max-height: 80vh;
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+        border: 2px solid rgba(0, 255, 255, 0.7);
+        transition: all 0.3s ease;
+      }
+      #center-video-container.visible {
+        display: block;
+      }
+      #center-video-container.larger {
+        width: 90vw;
+        max-width: 900px;
+        max-height: 90vh;
+      }
+      #center-video {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      /* 共用動畫屬性 */
+      .animated-element {
+        will-change: transform, opacity;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hint-arrow" id="hint-arrow">
+      <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24">
+        <path d="M12 2L4 12h5v8h6v-8h5L12 2z" />
+      </svg>
+    </div>
+
+    <div class="control-buttons-container">
+      <button class="control-button" id="continue-play-button">持續播放</button>
+      <button class="control-button" id="scanner-toggle-button">
+        啟動掃描
+      </button>
+    </div>
+
+    <div id="scanning-overlay">
+      <div class="tech-scanner">
+        <div class="scanner-inner">
+          <div class="scanner-line"></div>
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+        </div>
+        <div class="scanning-text">目標掃描中</div>
+      </div>
+    </div>
+    <div id="center-video-container">
+      <video id="center-video" playsinline webkit-playsinline></video>
+    </div>
+
+    <a-scene
+      mindar-image="imageTargetSrc: https://raw.githubusercontent.com/isaoinvest/TEST1234/main/1234targets.mind; warmupTolerance: 5;
+                     missTolerance: 10;
+                     filterMinCF: 0.000001; 
+                     filterBeta: 250;
+                     uiScanning: #scanning-overlay;"
+      color-space="sRGB"
+      renderer="colorManagement: true, physicallyCorrectLights"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false"
+      loading-screen="enabled: true; dotsColor: #00ffff; backgroundColor: #000000"
+    >
+      <a-assets>
+        <video
+          id="video"
+          src="https://pub-ac80c6d0a305452bbe0bdfcec65b6a2c.r2.dev/NEWS.mp4"
+          preload="auto"
+          loop
+          crossorigin="anonymous"
+          playsinline
+          webkit-playsinline
+          muted
+        ></video>
+        <video
+          id="video1"
+          src="YOUR_VIDEO1_URL.mp4" preload="auto"
+          loop
+          crossorigin="anonymous"
+          playsinline
+          webkit-playsinline
+          muted
+        ></video>
+      </a-assets>
+
+      <a-camera
+        position="0 0 0"
+        look-controls="enabled: false"
+        cursor="fuse: false; rayOrigin: mouse;"
+        raycaster="far: 10000; objects: .clickable"
+      >
+      </a-camera>
+
+      <a-entity
+        id="target0"
+        mindar-image-target="targetIndex: 0"
+        data-target-aspect-ratio="1.414"
+        fit-video-to-target-ratio="videoSelector: #video0-entity"
+      >
+        <a-video
+          id="video0-entity"
+          src="#video"
+          position="0 0 0"
+          rotation="0 0 0"
+          loop="true" ></a-video>
+      </a-entity>
+
+      <a-entity
+        id="target1"
+        mindar-image-target="targetIndex: 1"
+        data-target-aspect-ratio="1.414"
+        fit-video-to-target-ratio="videoSelector: #video1-entity"
+      >
+        <a-video
+          id="video1-entity"
+          src="#video1"
+          position="0 0 0"
+          rotation="0 0 0"
+          loop="true" ></a-video>
+      </a-entity>
+    </a-scene>
+    <script>
+      // === 自動調整影片比例的 A-Frame 元件定義 ===
+      AFRAME.registerComponent("fit-video-to-target-ratio", {
+        schema: {
+          videoSelector: { type: "string" },
+        },
+        init: function () {
+          this.videoEntity = null;
+          this.targetAspectRatio = null;
+          this.el.addEventListener(
+            "targetFound",
+            this.onTargetFound.bind(this)
+          );
+        },
+        onTargetFound: function () {
+          if (!this.videoEntity) {
+            this.videoEntity = this.el.querySelector(this.data.videoSelector);
+          }
+          if (!this.videoEntity) {
+            console.error(
+              "FitVideoToTargetRatio: 無法找到指定的影片實體:",
+              this.data.videoSelector
+            );
+            return;
+          }
+          const ratioString = this.el.dataset.targetAspectRatio;
+          if (ratioString) {
+            this.targetAspectRatio = parseFloat(ratioString);
+          } else {
+            console.warn(
+              "FitVideoToTargetRatio: 在實體上找不到 data-target-aspect-ratio 屬性:",
+              this.el.id
+            );
+            this.targetAspectRatio = 1.0; 
+          }
+          if (isNaN(this.targetAspectRatio) || this.targetAspectRatio <= 0) {
+            console.error(
+              "FitVideoToTargetRatio: 無效的目標長寬比:",
+              this.targetAspectRatio
+            );
+            return;
+          }
+          console.log(
+            `FitVideoToTargetRatio: 找到目標 ${this.el.id}, 套用長寬比 ${this.targetAspectRatio} 到 ${this.data.videoSelector}`
+          );
+          const videoGeometryComponent = this.videoEntity.components.geometry;
+          if (videoGeometryComponent && videoGeometryComponent.data) {
+            videoGeometryComponent.data.width = 1;
+            videoGeometryComponent.data.height = 1 / this.targetAspectRatio; // 修正：寬高比通常是 寬/高，所以高度 = 寬度 / 長寬比。如果 targetAspectRatio 是 寬高比 W/H，則 H = W / (W/H)。如果 targetAspectRatio 是 H/W，則 H = W * (H/W)。假設 data-target-aspect-ratio 是目標圖片的 寬/高。a-video 的平面通常是 X-Y 平面，width 是 X 軸，height 是 Y 軸。如果目標圖片的寬高比是 W_img/H_img，我們希望影片平面符合這個比例。如果設定 video_plane_width = 1，則 video_plane_height = 1 / (W_img/H_img) = H_img/W_img。
+                                                                         // 您的原始代碼是 videoGeometryComponent.data.height = this.targetAspectRatio; 這意味著如果 targetAspectRatio 是 0.7 (W/H)，高度會是 0.7。如果 targetAspectRatio 代表 W/H，則高度應為 1 / targetAspectRatio 以保持比例。
+                                                                         // 讓我們假設 data-target-aspect-ratio="0.7" 意味著 圖片寬度/圖片高度 = 0.7 (即圖片比較高)。
+                                                                         // 若 a-video width=1, 則 a-video height 應該是 1 / 0.7 approx 1.42
+                                                                         // 如果 data-target-aspect-ratio 意指的是 H_img/W_img，則 height = targetAspectRatio 是對的。
+                                                                         // 為了安全起見，並基於您的原始邏輯，我將其保留為 this.targetAspectRatio，但請注意這一點。如果影片看起來被不成比例地拉伸，這可能是原因。
+                                                                         // 經過重新思考：如果 targetAspectRatio 是 W_marker / H_marker，且我們將 a-video 的寬度設為 1 (對應於標記的寬度)，則 a-video 的高度應為 H_marker / W_marker = 1 / targetAspectRatio。
+                                                                         // 如果 data-target-aspect-ratio="0.7" (例如寬70高100的圖片)，則高度應為 1 / 0.7。
+                                                                         // 我將修改此處以符合這個邏輯。
+            videoGeometryComponent.data.height = 1 / this.targetAspectRatio;
+
+
+            this.videoEntity.setAttribute(
+              "geometry",
+              videoGeometryComponent.data
+            );
+            this.videoEntity.setAttribute("position", { x: 0, y: 0, z: 0 });
+          } else {
+            console.error(
+              "FitVideoToTargetRatio: 影片實體缺少 geometry 元件或 data:",
+              this.data.videoSelector
+            );
+          }
+        },
+      });
+      // === 元件定義結束 ===
+
+      // === 主要應用邏輯 (IIFE) ===
+      (function () {
+        const sceneEl = document.querySelector("a-scene");
+        const video0El = document.querySelector("#video");
+        const video1El = document.querySelector("#video1");
+        const target0El = document.querySelector("#target0");
+        const target1El = document.querySelector("#target1");
+        const scanningOverlay = document.getElementById("scanning-overlay");
+        const continuePlayButton = document.getElementById(
+          "continue-play-button"
+        );
+        const scannerToggleButton = document.getElementById(
+          "scanner-toggle-button"
+        );
+        const centerVideoContainer = document.getElementById(
+          "center-video-container"
+        );
+        const centerVideoEl = document.getElementById("center-video");
+        const hintArrow = document.getElementById("hint-arrow");
+
+        // === 新增：影片事件日誌 ===
+        if (video0El) {
+            console.log("為 video0El 添加事件監聽器");
+            video0El.addEventListener('loadedmetadata', () => console.log('Video video0El: loadedmetadata. Duration:', video0El.duration));
+            video0El.addEventListener('loadeddata', () => console.log('Video video0El: loadeddata. ReadyState:', video0El.readyState));
+            video0El.addEventListener('canplay', () => console.log('Video video0El: canplay. ReadyState:', video0El.readyState));
+            video0El.addEventListener('canplaythrough', () => console.log('Video video0El: canplaythrough. ReadyState:', video0El.readyState));
+            video0El.addEventListener('playing', () => console.log('Video video0El: playing'));
+            video0El.addEventListener('pause', () => console.log('Video video0El: pause'));
+            video0El.addEventListener('ended', () => console.log('Video video0El: ended'));
+            video0El.addEventListener('error', (e) => {
+                console.error('Video video0El Error:', e);
+                if (video0El.error) {
+                    console.error('Video video0El MediaError Code:', video0El.error.code, 'Message:', video0El.error.message);
+                }
+            });
+            video0El.addEventListener('stalled', () => console.warn('Video video0El: stalled'));
+            video0El.addEventListener('waiting', () => console.warn('Video video0El: waiting'));
+        } else {
+            console.error("video0El 未找到!");
+        }
+
+        if (video1El) {
+            if (video1El.src.includes("YOUR_VIDEO1_URL.mp4")) {
+                console.warn("video1El 使用的是佔位符 URL:", video1El.src);
+            }
+            // 可以為 video1El 添加類似的日誌監聽器
+        } else {
+            console.error("video1El 未找到!");
+        }
+        // === 日誌結束 ===
+
+
+        const TIMEOUTS = {
+          SCANNING_OVERLAY: 200, 
+          HINT_ARROW: 5000, 
+        };
+
+        const state = {
+          targetCount: 0, 
+          overlayTimer: null, 
+          audioEnabled: false, 
+          continuePlayEnabled: false, 
+          lastActiveVideo: null, 
+          lastActiveTarget: null, 
+          scannerUIEnabled: false, 
+          centerVideoActive: false, 
+          hintShown: false, 
+        };
+
+        function enableAudio() {
+          if (state.audioEnabled) return;
+          try {
+            if (video0El) video0El.muted = false;
+            if (video1El && video1El.src && !video1El.src.includes("YOUR_VIDEO1_URL.mp4")) // 檢查是否為有效 src
+              video1El.muted = false;
+            centerVideoEl.muted = false;
+            state.audioEnabled = true;
+            console.log("音訊已啟用");
+          } catch (error) {
+            console.error("啟用音頻失敗:", error);
+          }
+        }
+
+        function setupAudioHandlers() {
+          const enableAudioOnce = (event) => {
+            enableAudio();
+            document.removeEventListener("touchstart", enableAudioOnce);
+            document.removeEventListener("click", enableAudioOnce);
+          };
+          document.addEventListener("touchstart", enableAudioOnce, {
+            passive: true,
+          });
+          document.addEventListener("click", enableAudioOnce);
+        }
+
+        function setupScanningUI() {
+          scanningOverlay.classList.remove("visible");
+          setTimeout(() => {
+            if (!state.hintShown) {
+              hintArrow.classList.add("hidden");
+            }
+          }, TIMEOUTS.HINT_ARROW);
+        }
+        
+        function handleVideoPlayback(videoEl, shouldPlay) {
+          if (
+            !videoEl ||
+            !videoEl.src ||
+            videoEl.src === window.location.href ||
+            videoEl.src.includes("YOUR_VIDEO1_URL.mp4") // 不要嘗試播放佔位符
+          ) {
+            console.warn("handleVideoPlayback: 無效的影片元素或 src", videoEl ? videoEl.id : "null");
+            return Promise.resolve();
+          }
+          
+          console.log(`handleVideoPlayback: ${videoEl.id} shouldPlay: ${shouldPlay}`);
+          if (shouldPlay) {
+            // videoEl.currentTime = 0; // 保持註解，除非確實需要在每次 targetFound 時重頭播放
+            return videoEl.play().catch((error) => {
+              console.warn(
+                `自動播放 ${videoEl.id} 失敗，嘗試靜音播放:`,
+                error.name,
+                error.message
+              );
+              videoEl.muted = true;
+              state.audioEnabled = false; // 音訊狀態可能已改變
+              return videoEl.play().catch(err => {
+                console.error(`靜音播放 ${videoEl.id} 仍然失敗:`, err);
+              });
+            });
+          } else {
+            videoEl.pause();
+            return Promise.resolve();
+          }
+        }
+
+        function playVideo(videoEl) {
+          return handleVideoPlayback(videoEl, true);
+        }
+        function pauseVideo(videoEl) {
+          return handleVideoPlayback(videoEl, false);
+        }
+
+        function switchToCenterVideo(sourceVideoEl) {
+          if (
+            !sourceVideoEl ||
+            !sourceVideoEl.src ||
+            sourceVideoEl.src === window.location.href ||
+            sourceVideoEl.src.includes("YOUR_VIDEO1_URL.mp4")
+          )
+            return;
+          console.log("切換到中央影片:", sourceVideoEl.id);
+          centerVideoEl.src = sourceVideoEl.src;
+          centerVideoEl.currentTime = sourceVideoEl.currentTime;
+          centerVideoEl.muted = state.audioEnabled ? sourceVideoEl.muted : true;
+          centerVideoContainer.classList.add("visible");
+          if (state.continuePlayEnabled)
+            centerVideoContainer.classList.add("larger");
+          state.centerVideoActive = true;
+          centerVideoEl.play().catch((error) => {
+            console.warn("中央影片播放失敗:", error);
+            centerVideoEl.muted = true;
+            state.audioEnabled = false;
+            centerVideoEl.play();
+          });
+        }
+
+        function switchFromCenterVideo(targetVideoEl) {
+          if (
+            !targetVideoEl ||
+            !targetVideoEl.src ||
+            targetVideoEl.src === window.location.href ||
+            targetVideoEl.src.includes("YOUR_VIDEO1_URL.mp4")
+          )
+            return;
+          console.log("從中央影片切換回 AR 影片:", targetVideoEl.id);
+          if (state.centerVideoActive && !centerVideoEl.paused) {
+            targetVideoEl.currentTime = centerVideoEl.currentTime;
+          }
+          centerVideoContainer.classList.remove("visible", "larger");
+          state.centerVideoActive = false;
+          centerVideoEl.pause();
+          centerVideoEl.src = "";
+        }
+
+        function setupContinuePlayButton() {
+          continuePlayButton.addEventListener("click", () => {
+            state.continuePlayEnabled = !state.continuePlayEnabled;
+            console.log("持續播放模式:", state.continuePlayEnabled);
+            if (state.continuePlayEnabled) {
+              continuePlayButton.classList.add("active");
+              continuePlayButton.textContent = "停止播放";
+              if (state.lastActiveVideo) {
+                if (state.targetCount === 0) {
+                  switchToCenterVideo(state.lastActiveVideo);
+                } else {
+                  if (state.lastActiveVideo.paused)
+                    playVideo(state.lastActiveVideo);
+                  if (state.centerVideoActive)
+                    switchFromCenterVideo(state.lastActiveVideo);
+                }
+              }
+              if (state.scannerUIEnabled && state.targetCount === 0) {
+                scanningOverlay.classList.remove("visible");
+              }
+            } else {
+              continuePlayButton.classList.remove("active");
+              continuePlayButton.textContent = "持續播放";
+              if (state.centerVideoActive) {
+                centerVideoContainer.classList.remove("visible", "larger");
+                centerVideoEl.pause();
+                centerVideoEl.src = "";
+                state.centerVideoActive = false;
+              }
+              if (
+                state.targetCount === 0 &&
+                state.lastActiveVideo &&
+                !state.lastActiveVideo.paused
+              ) {
+                pauseVideo(state.lastActiveVideo);
+              }
+              if (state.scannerUIEnabled && state.targetCount === 0) {
+                scanningOverlay.classList.add("visible");
+              }
+            }
+            if (!state.hintShown) {
+              hintArrow.classList.add("hidden");
+              state.hintShown = true;
+            }
+          });
+        }
+
+        function setupScannerToggleButton() {
+          scannerToggleButton.classList.remove("active");
+          scannerToggleButton.textContent = "啟動掃描";
+          scannerToggleButton.addEventListener("click", () => {
+            state.scannerUIEnabled = !state.scannerUIEnabled;
+            console.log("掃描 UI 啟用狀態:", state.scannerUIEnabled);
+            if (!state.hintShown) {
+              hintArrow.classList.add("hidden");
+              state.hintShown = true;
+            }
+            if (state.scannerUIEnabled) {
+              scannerToggleButton.classList.add("active");
+              scannerToggleButton.textContent = "關閉掃描";
+              if (state.targetCount === 0 && !state.continuePlayEnabled) {
+                scanningOverlay.classList.add("visible");
+              }
+            } else {
+              scannerToggleButton.classList.remove("active");
+              scannerToggleButton.textContent = "啟動掃描";
+              scanningOverlay.classList.remove("visible");
+              if (state.overlayTimer) {
+                clearTimeout(state.overlayTimer);
+                state.overlayTimer = null;
+              }
+            }
+          });
+        }
+
+        function setupTargetHandlers() {
+          const targetFound = (videoEl, otherVideoEl, targetEl) => {
+            console.log("找到目標:", targetEl.id, "準備播放影片:", videoEl ? videoEl.id : "null");
+            if (!videoEl || videoEl.src.includes("YOUR_VIDEO1_URL.mp4")) {
+                console.warn("目標找到，但影片元素無效或為佔位符:", targetEl.id);
+                return;
+            }
+
+            state.targetCount++;
+            state.lastActiveVideo = videoEl;
+            state.lastActiveTarget = targetEl;
+            
+            if (otherVideoEl) pauseVideo(otherVideoEl); // 確保暫停另一個影片
+
+            if (state.centerVideoActive && centerVideoEl.src === videoEl.src) {
+              switchFromCenterVideo(videoEl);
+            }
+            
+            if (!state.continuePlayEnabled || !state.centerVideoActive) {
+               // 只有在非持續播放或中央影片非激活時才重頭播 (如果需要)
+               // videoEl.currentTime = 0; // 取消此處的 currentTime = 0, 除非特定需求
+            }
+
+            playVideo(videoEl).catch((error) =>
+              console.error("播放影片失敗:", videoEl.id, error)
+            );
+
+            // 檢查 a-video 實體狀態
+            const videoEntityEl = document.querySelector("#" + videoEl.id + "-entity"); // e.g. #video-entity
+            if (videoEntityEl) {
+                setTimeout(() => { // 短暫延遲以獲取更新後的狀態
+                    console.log(`A-Frame 實體 ${videoEntityEl.id} 可見性: ${videoEntityEl.getAttribute('visible')}`);
+                    const material = videoEntityEl.getAttribute('material');
+                    console.log(`A-Frame 實體 ${videoEntityEl.id} 材質:`, material);
+                    if (material && material.src) {
+                        const videoTextureSource = document.querySelector(material.src);
+                        if (videoTextureSource) {
+                             console.log(`影片紋理源 (${videoTextureSource.id}) 狀態: readyState=${videoTextureSource.readyState}, paused=${videoTextureSource.paused}, currentTime=${videoTextureSource.currentTime}`);
+                        }
+                    }
+                }, 100);
+            }
+
+
+            if (scanningOverlay.classList.contains("visible"))
+              scanningOverlay.classList.remove("visible");
+            if (state.overlayTimer) {
+              clearTimeout(state.overlayTimer);
+              state.overlayTimer = null;
+            }
+          };
+
+          const targetLost = (videoEl, targetEl) => {
+            console.log("丟失目標:", targetEl.id, "對應影片:", videoEl ? videoEl.id : "null");
+             if (!videoEl || videoEl.src.includes("YOUR_VIDEO1_URL.mp4")) {
+                console.warn("目標丟失，但影片元素無效或為佔位符:", targetEl.id);
+                return;
+            }
+
+            if (state.targetCount > 0) state.targetCount--;
+            
+            if (state.continuePlayEnabled) {
+              if (state.targetCount === 0) switchToCenterVideo(videoEl);
+            } else {
+              pauseVideo(videoEl);
+              if (state.scannerUIEnabled && state.targetCount === 0) {
+                if (state.overlayTimer) clearTimeout(state.overlayTimer);
+                state.overlayTimer = setTimeout(() => {
+                  if (
+                    state.scannerUIEnabled &&
+                    state.targetCount === 0 &&
+                    !state.continuePlayEnabled
+                  ) {
+                    scanningOverlay.classList.add("visible");
+                    console.log("延遲後顯示掃描 UI");
+                  }
+                }, TIMEOUTS.SCANNING_OVERLAY);
+              }
+            }
+          };
+
+          if (target0El && video0El) {
+            target0El.addEventListener("targetFound", () =>
+              targetFound(video0El, video1El, target0El)
+            );
+            target0El.addEventListener("targetLost", () =>
+              targetLost(video0El, target0El)
+            );
+          } else {
+            console.error("target0El 或 video0El 未找到，無法附加事件監聽器。");
+          }
+
+          if (target1El && video1El && !video1El.src.includes("YOUR_VIDEO1_URL.mp4")) { // 僅當 video1 有效時
+            target1El.addEventListener("targetFound", () =>
+              targetFound(video1El, video0El, target1El)
+            );
+            target1El.addEventListener("targetLost", () =>
+              targetLost(video1El, target1El)
+            );
+          } else {
+            console.warn("target1El 或 video1El (或其 src) 無效，未附加 target1 的事件監聽器。");
+          }
+        }
+
+        function handleVisibilityChange() {
+          if (document.visibilityState === "hidden") {
+            console.log("頁面隱藏，暫停所有影片");
+            if (video0El) pauseVideo(video0El);
+            if (video1El && !video1El.src.includes("YOUR_VIDEO1_URL.mp4")) pauseVideo(video1El);
+            if (state.centerVideoActive) centerVideoEl.pause();
+          } else if (document.visibilityState === "visible") {
+            console.log("頁面恢復可見");
+            if (state.centerVideoActive) {
+              centerVideoEl
+                .play()
+                .catch((e) => console.warn("恢復中央影片播放失敗:", e));
+            } else if (
+              state.targetCount > 0 &&
+              state.lastActiveVideo &&
+              state.lastActiveTarget && // 確保 lastActiveTarget 存在
+              state.lastActiveTarget.object3D.visible 
+            ) {
+              playVideo(state.lastActiveVideo).catch((e) =>
+                console.warn("恢復 AR 影片播放失敗:", e)
+              );
+            }
+          }
+        }
+
+        function initApp() {
+          console.log("初始化應用程式...");
+          setupTargetHandlers();
+          setupScanningUI();
+          setupAudioHandlers();
+          setupContinuePlayButton();
+          setupScannerToggleButton();
+          document.addEventListener("visibilitychange", handleVisibilityChange);
+          window.addEventListener("error", (event) => {
+            console.error("捕獲到未處理的錯誤:", event.error, event.message);
+          });
+          console.log("應用程式初始化完成。請檢查 video0El 和 video1El 的日誌。");
+        }
+        initApp();
+      })(); 
+    </script>
+  </body>
+</html>
