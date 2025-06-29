@@ -577,6 +577,11 @@
           
           console.log(`handleVideoPlayback: ${videoEl.id} shouldPlay: ${shouldPlay}`);
           if (shouldPlay) {
+            // 只有在掃描UI啟用時才播放
+            if (!state.scannerUIEnabled) {
+              console.log("掃描UI未啟用，不播放影片");
+              return Promise.resolve();
+            }
             return videoEl.play().catch((error) => {
               console.warn(
                 `自動播放 ${videoEl.id} 失敗，嘗試靜音播放:`,
@@ -591,6 +596,8 @@
             });
           } else {
             videoEl.pause();
+            // 確保影片真的停止
+            videoEl.currentTime = videoEl.currentTime;
             return Promise.resolve();
           }
         }
@@ -653,15 +660,26 @@
             continuePlayButton.classList.remove("active");
             continuePlayButton.textContent = "持續播放";
             
-            // 如果有活躍的目標，恢復 AR 影片播放
-            if (state.targetCount > 0 && state.lastActiveVideo) {
+            // 如果有活躍的目標且掃描UI仍啟用，恢復 AR 影片播放
+            if (state.targetCount > 0 && state.lastActiveVideo && state.scannerUIEnabled) {
               playVideo(state.lastActiveVideo);
+            }
+            
+            // 如果沒有目標且掃描UI仍啟用，顯示掃描UI
+            if (state.targetCount === 0 && state.scannerUIEnabled) {
+              scanningOverlay.classList.add("visible");
             }
           }
         });
 
         function setupContinuePlayButton() {
           continuePlayButton.addEventListener("click", () => {
+            // 如果掃描UI未啟用，不允許開啟持續播放
+            if (!state.scannerUIEnabled) {
+              console.log("請先啟動掃描功能");
+              return;
+            }
+            
             state.continuePlayEnabled = !state.continuePlayEnabled;
             console.log("持續播放模式:", state.continuePlayEnabled);
             if (state.continuePlayEnabled) {
@@ -724,12 +742,42 @@
                 scanningOverlay.classList.add("visible");
               }
             } else {
+              // 關閉掃描時的處理
               scannerToggleButton.classList.remove("active");
               scannerToggleButton.textContent = "啟動掃描";
               scanningOverlay.classList.remove("visible");
               if (state.overlayTimer) {
                 clearTimeout(state.overlayTimer);
                 state.overlayTimer = null;
+              }
+              
+              // 立即停止所有影片播放
+              console.log("關閉掃描，停止所有影片");
+              if (video0El && !video0El.paused) {
+                pauseVideo(video0El);
+              }
+              if (video1El && !video1El.paused && !video1El.src.includes("YOUR_VIDEO1_URL.mp4")) {
+                pauseVideo(video1El);
+              }
+              
+              // 如果正在全螢幕播放，也要關閉
+              if (state.fullscreenVideoActive) {
+                fullscreenVideoContainer.classList.remove("visible");
+                state.fullscreenVideoActive = false;
+                fullscreenVideoEl.pause();
+                fullscreenVideoEl.src = "";
+              }
+              
+              // 重置狀態
+              state.targetCount = 0;
+              state.lastActiveVideo = null;
+              state.lastActiveTarget = null;
+              
+              // 如果持續播放也是開啟的，關閉它
+              if (state.continuePlayEnabled) {
+                state.continuePlayEnabled = false;
+                continuePlayButton.classList.remove("active");
+                continuePlayButton.textContent = "持續播放";
               }
             }
           });
@@ -797,22 +845,30 @@
           };
 
           const targetLost = (videoEl, targetEl) => {
-            // 只有在掃描UI啟用時才處理目標丟失事件
-            if (!state.scannerUIEnabled) {
-              console.log("掃描UI未啟用，忽略目標丟失:", targetEl.id);
-              return;
-            }
-            
+            console.log("=== targetLost 被呼叫 ===");
+            console.log("掃描UI狀態:", state.scannerUIEnabled);
             console.log("丟失目標:", targetEl.id, "對應影片:", videoEl ? videoEl.id : "null");
-             if (!videoEl || videoEl.src.includes("YOUR_VIDEO1_URL.mp4")) {
+            
+            if (!videoEl || videoEl.src.includes("YOUR_VIDEO1_URL.mp4")) {
                 console.warn("目標丟失，但影片元素無效或為佔位符:", targetEl.id);
                 return;
             }
 
+            // 無論掃描UI是否啟用，目標丟失時都應該處理
             if (state.targetCount > 0) state.targetCount--;
             
+            // 如果掃描UI已關閉，直接暫停影片
+            if (!state.scannerUIEnabled) {
+              console.log("掃描UI已關閉，直接暫停影片");
+              pauseVideo(videoEl);
+              return;
+            }
+            
+            // 掃描UI仍啟用的情況
             if (state.continuePlayEnabled) {
-              if (state.targetCount === 0) switchToFullscreenVideo(videoEl);
+              if (state.targetCount === 0) {
+                switchToFullscreenVideo(videoEl);
+              }
             } else {
               pauseVideo(videoEl);
               if (state.scannerUIEnabled && state.targetCount === 0) {
