@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://cdn.glitch.global" />
     <link
       rel="preload"
-      href="https://pub-ac80c6d0a305452bbe0bdfcec65b6a2c.r2.dev/NEWS.mp4"
+      href="https://pub-ac80c6d0a305452bbe0bdfcec65b6a2c.r2.dev/aakkss.mp4"
       as="video"
       type="video/mp4"
       crossorigin="anonymous"
@@ -403,6 +403,13 @@
           );
         },
         onTargetFound: function () {
+          // 只有在掃描UI啟用時才處理
+          const state = window.arAppState;
+          if (!state || !state.scannerUIEnabled) {
+            console.log("FitVideoToTargetRatio: 掃描UI未啟用，忽略目標");
+            return;
+          }
+          
           if (!this.videoEntity) {
             this.videoEntity = this.el.querySelector(this.data.videoSelector);
           }
@@ -455,6 +462,19 @@
 
       // === 主要應用邏輯 (IIFE) ===
       (function () {
+        // 將 state 設為全域變數，讓其他組件可以存取
+        window.arAppState = {
+          targetCount: 0, 
+          overlayTimer: null, 
+          audioEnabled: false, 
+          continuePlayEnabled: false, 
+          lastActiveVideo: null, 
+          lastActiveTarget: null, 
+          scannerUIEnabled: false, 
+          fullscreenVideoActive: false, 
+          hintShown: false, 
+        };
+        const state = window.arAppState;
         const sceneEl = document.querySelector("a-scene");
         const video0El = document.querySelector("#video");
         const video1El = document.querySelector("#video1");
@@ -507,18 +527,6 @@
         const TIMEOUTS = {
           SCANNING_OVERLAY: 200, 
           HINT_ARROW: 5000, 
-        };
-
-        const state = {
-          targetCount: 0, 
-          overlayTimer: null, 
-          audioEnabled: false, 
-          continuePlayEnabled: false, 
-          lastActiveVideo: null, 
-          lastActiveTarget: null, 
-          scannerUIEnabled: false, 
-          fullscreenVideoActive: false, 
-          hintShown: false, 
         };
 
         function enableAudio() {
@@ -728,7 +736,12 @@
         }
 
         function setupTargetHandlers() {
+          console.log("開始設定目標處理器...");
+          
           const targetFound = (videoEl, otherVideoEl, targetEl) => {
+            console.log("=== targetFound 被呼叫 ===");
+            console.log("掃描UI狀態:", state.scannerUIEnabled);
+            
             // 只有在掃描UI啟用時才處理目標找到事件
             if (!state.scannerUIEnabled) {
               console.log("掃描UI未啟用，忽略目標:", targetEl.id);
@@ -745,15 +758,20 @@
             state.lastActiveVideo = videoEl;
             state.lastActiveTarget = targetEl;
             
+            console.log("目標計數:", state.targetCount);
+            
             if (otherVideoEl) pauseVideo(otherVideoEl);
 
             if (state.fullscreenVideoActive && fullscreenVideoEl.src === videoEl.src) {
               switchFromFullscreenVideo(videoEl);
             }
 
-            playVideo(videoEl).catch((error) =>
-              console.error("播放影片失敗:", videoEl.id, error)
-            );
+            console.log("嘗試播放影片...");
+            playVideo(videoEl).then(() => {
+              console.log("影片播放成功:", videoEl.id);
+            }).catch((error) => {
+              console.error("播放影片失敗:", videoEl.id, error);
+            });
 
             const videoEntityEl = document.querySelector("#" + videoEl.id + "-entity");
             if (videoEntityEl) {
@@ -814,26 +832,34 @@
           };
 
           if (target0El && video0El) {
-            target0El.addEventListener("targetFound", () =>
-              targetFound(video0El, video1El, target0El)
-            );
-            target0El.addEventListener("targetLost", () =>
-              targetLost(video0El, target0El)
-            );
+            console.log("設定 target0 事件監聽器");
+            target0El.addEventListener("targetFound", (event) => {
+              console.log("target0 targetFound 事件觸發", event);
+              targetFound(video0El, video1El, target0El);
+            });
+            target0El.addEventListener("targetLost", (event) => {
+              console.log("target0 targetLost 事件觸發", event);
+              targetLost(video0El, target0El);
+            });
           } else {
             console.error("target0El 或 video0El 未找到，無法附加事件監聽器。");
           }
 
           if (target1El && video1El && !video1El.src.includes("YOUR_VIDEO1_URL.mp4")) { // 僅當 video1 有效時
-            target1El.addEventListener("targetFound", () =>
-              targetFound(video1El, video0El, target1El)
-            );
-            target1El.addEventListener("targetLost", () =>
-              targetLost(video1El, target1El)
-            );
+            console.log("設定 target1 事件監聽器");
+            target1El.addEventListener("targetFound", (event) => {
+              console.log("target1 targetFound 事件觸發", event);
+              targetFound(video1El, video0El, target1El);
+            });
+            target1El.addEventListener("targetLost", (event) => {
+              console.log("target1 targetLost 事件觸發", event);
+              targetLost(video1El, target1El);
+            });
           } else {
             console.warn("target1El 或 video1El (或其 src) 無效，未附加 target1 的事件監聽器。");
           }
+          
+          console.log("目標處理器設定完成");
         }
 
         function handleVisibilityChange() {
@@ -863,16 +889,28 @@
 
         function initApp() {
           console.log("初始化應用程式...");
-          setupTargetHandlers();
-          setupScanningUI();
-          setupAudioHandlers();
-          setupContinuePlayButton();
-          setupScannerToggleButton();
-          document.addEventListener("visibilitychange", handleVisibilityChange);
-          window.addEventListener("error", (event) => {
-            console.error("捕獲到未處理的錯誤:", event.error, event.message);
-          });
-          console.log("應用程式初始化完成。請檢查 video0El 和 video1El 的日誌。");
+          
+          // 確保場景已經載入
+          const sceneEl = document.querySelector("a-scene");
+          if (sceneEl.hasLoaded) {
+            setupAll();
+          } else {
+            sceneEl.addEventListener('loaded', setupAll);
+          }
+          
+          function setupAll() {
+            console.log("A-Frame 場景已載入，設定所有功能");
+            setupTargetHandlers();
+            setupScanningUI();
+            setupAudioHandlers();
+            setupContinuePlayButton();
+            setupScannerToggleButton();
+            document.addEventListener("visibilitychange", handleVisibilityChange);
+            window.addEventListener("error", (event) => {
+              console.error("捕獲到未處理的錯誤:", event.error, event.message);
+            });
+            console.log("應用程式初始化完成。");
+          }
         }
         initApp();
       })(); 
