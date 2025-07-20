@@ -473,10 +473,7 @@
             elements.video.muted = muted;
             elements.fullscreenVideo.muted = muted;
             
-            utils.updateIcons(elements.icons.sound, state.audioEnabled);
-            utils.updateIcons(elements.icons.mute, !state.audioEnabled);
-            
-            elements.buttons.audio.forEach(btn => btn.classList.toggle('active', state.audioEnabled));
+            videoPlayer.updateAudioUI();
             controls.show();
           }
         };
@@ -495,11 +492,12 @@
               elements.video.muted = true;
               elements.fullscreenVideo.muted = true;
               state.audioEnabled = false;
-              audio.updateUI();
+              this.updateAudioUI();
               await video.play();
               state.isPlaying = true;
             }
             this.updateUI();
+            progress.start();
           },
 
           pause(video) {
@@ -507,6 +505,7 @@
               video.pause();
               state.isPlaying = false;
               this.updateUI();
+              progress.stop();
             }
           },
 
@@ -515,9 +514,9 @@
             if (!video?.src || (!state.isTargetVisible && !state.isFullscreen)) return;
             
             if (state.isPlaying) {
-              this.pause(video);
+              videoPlayer.pause(video);
             } else {
-              this.play(video);
+              videoPlayer.play(video);
             }
             controls.show();
           },
@@ -525,7 +524,17 @@
           updateUI() {
             utils.updateIcons(elements.icons.play, !state.isPlaying);
             utils.updateIcons(elements.icons.pause, state.isPlaying);
-            elements.buttons.playPause.forEach(btn => btn.classList.toggle('active', state.isPlaying));
+            elements.buttons.playPause.forEach(btn => {
+              if (btn) btn.classList.toggle('active', state.isPlaying);
+            });
+          },
+
+          updateAudioUI() {
+            utils.updateIcons(elements.icons.sound, state.audioEnabled);
+            utils.updateIcons(elements.icons.mute, !state.audioEnabled);
+            elements.buttons.audio.forEach(btn => {
+              if (btn) btn.classList.toggle('active', state.audioEnabled);
+            });
           }
         };
 
@@ -677,10 +686,23 @@
           },
 
           setupButtons() {
-            elements.buttons.audio.forEach(btn => btn.addEventListener('click', audio.toggle));
-            elements.buttons.playPause.forEach(btn => btn.addEventListener('click', videoPlayer.toggle));
-            elements.buttons.fullscreen.addEventListener('click', fullscreen.enter);
-            elements.buttons.exitFullscreen.addEventListener('click', fullscreen.exit);
+            // 音頻按鈕
+            elements.buttons.audio.forEach(btn => {
+              if (btn) btn.addEventListener('click', audio.toggle);
+            });
+            
+            // 播放/暫停按鈕
+            elements.buttons.playPause.forEach(btn => {
+              if (btn) btn.addEventListener('click', videoPlayer.toggle);
+            });
+            
+            // 全螢幕按鈕
+            if (elements.buttons.fullscreen) {
+              elements.buttons.fullscreen.addEventListener('click', fullscreen.enter);
+            }
+            if (elements.buttons.exitFullscreen) {
+              elements.buttons.exitFullscreen.addEventListener('click', fullscreen.exit);
+            }
           },
 
           setupInteractions() {
