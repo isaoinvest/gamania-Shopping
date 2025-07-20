@@ -480,16 +480,17 @@
           let isActive = true;
 
           const reset = (id, element, hideClass = 'hidden') => {
-            if (timers.has(id)) clearTimeout(timers.get(id));
-            element.classList.remove(hideClass);
-            
-            const timer = setTimeout(() => {
-              if (isActive) element.classList.add(hideClass);
-              timers.delete(id);
-            }, AUTO_HIDE_DELAY);
-            
-            timers.set(id, timer);
-          };
+        if (timers.has(id)) clearTimeout(timers.get(id));
+        element.classList.remove(hideClass);
+        
+        // 直接設定計時器，時間到就隱藏，不再檢查 isActive 狀態
+        const timer = setTimeout(() => {
+          element.classList.add(hideClass); 
+          timers.delete(id);
+        }, AUTO_HIDE_DELAY);
+        
+        timers.set(id, timer);
+      };
 
           const clear = id => {
             if (timers.has(id)) {
