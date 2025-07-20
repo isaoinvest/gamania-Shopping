@@ -4,24 +4,164 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="cache-control" content="no-cache">
-    
     <!-- 預連接到 CDN 域名以加快載入速度 -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://raw.githubusercontent.com">
     <link rel="preconnect" href="https://pub-ac80c6d0a305452bbe0bdfcec65b6a2c.r2.dev">
-    
-    <!-- 關鍵CSS - 僅包含載入指示器和基本佈局 -->
+    <script src="https://cdn.jsdelivr.net/gh/isaoinvest/ar-libs/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/isaoinvest/ar-libs/mindar-image-aframe.prod.js"></script>
+
     <style>
-      /* 關鍵樣式 - 優先渲染 */
       body {
         margin: 0;
         overflow: hidden;
         width: 100vw;
         height: 100vh;
-        background-color: #000;
       }
 
-      /* 載入指示器樣式 */
+      #controls-container, #fullscreen-controls {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+        pointer-events: auto;
+      }
+
+      #controls-container.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateX(-50%) translateY(50px);
+      }
+
+      #fullscreen-controls {
+        z-index: 10001;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      #fullscreen-controls.visible {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+      }
+
+      .progress-bar-container {
+        display: flex;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.6);
+        border-radius: 20px;
+        padding: 8px 16px;
+        backdrop-filter: blur(10px);
+        gap: 10px;
+        min-width: 200px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .playback-buttons-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .time-display {
+        color: rgba(255, 255, 255, 0.9);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        min-width: 30px;
+        text-align: center;
+      }
+
+      .progress-slider {
+        flex: 1;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+        margin: 0 8px;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+
+      .progress-slider:hover {
+        height: 6px;
+      }
+
+      .progress-slider::-webkit-slider-thumb {
+        appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ffffff;
+        cursor: pointer;
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+      }
+
+      .progress-slider::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ffffff;
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+      }
+
+      .icon-button {
+        width: 40px;
+        height: 40px;
+        background-color: rgba(0, 0, 0, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(10px);
+      }
+
+      .icon-button:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.4);
+        transform: scale(1.05);
+      }
+
+      .icon-button.active {
+        background-color: rgba(0, 195, 255, 0.3);
+        border-color: rgba(0, 255, 255, 0.8);
+      }
+
+      .icon-button svg {
+        width: 18px;
+        height: 18px;
+        fill: white;
+      }
+
+      #screen-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 999;
+        pointer-events: none;
+        cursor: pointer;
+      }
+
+      #screen-overlay.active {
+        pointer-events: auto;
+      }
+
       #scanning-overlay {
         position: fixed;
         top: 0;
@@ -63,36 +203,39 @@
         50% { transform: translateY(176px); }
       }
 
-      /* 基本佈局 - 初始隱藏所有控制項 */
-      .ui-controls {
+      #fullscreen-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 10000;
+        background-color: rgba(0, 0, 0, 0.98);
         opacity: 0;
         visibility: hidden;
-        transition: opacity 0.3s ease, visibility 0.3s ease;
+        transition: opacity 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
       }
 
-      .ui-controls.loaded {
+      #fullscreen-container.visible {
         opacity: 1;
         visibility: visible;
       }
+
+      #fullscreen-video {
+        max-width: 95vw;
+        max-height: 95vh;
+        object-fit: contain;
+      }
     </style>
-
-    <!-- AR框架載入 -->
-    <script src="https://cdn.jsdelivr.net/gh/isaoinvest/ar-libs/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/isaoinvest/ar-libs/mindar-image-aframe.prod.js"></script>
   </head>
-  
   <body>
-    <!-- AR掃描指示器 - 立即顯示 -->
-    <div id="scanning-overlay">
-      <div class="scanner-frame">
-        <div class="scanner-line"></div>
-      </div>
-    </div>
-
-    <!-- UI控制項容器 - 延遲載入樣式 -->
-    <div id="screen-overlay" class="ui-controls"></div>
+    <div id="screen-overlay"></div>
     
-    <div id="controls-container" class="ui-controls">
+    <div id="controls-container">
       <div class="progress-bar-container">
         <span class="time-display" id="current-time">0:00</span>
         <input type="range" id="progress-slider" class="progress-slider" min="0" max="100" value="0" step="0.1">
@@ -121,8 +264,14 @@
         </button>
       </div>
     </div>
+
+    <div id="scanning-overlay">
+      <div class="scanner-frame">
+        <div class="scanner-line"></div>
+      </div>
+    </div>
     
-    <div id="fullscreen-container" class="ui-controls">
+    <div id="fullscreen-container">
       <video id="fullscreen-video" preload="none" playsinline webkit-playsinline></video>
       
       <div id="fullscreen-controls">
@@ -156,7 +305,6 @@
       </div>
     </div>
 
-    <!-- AR場景 -->
     <a-scene
       mindar-image="imageTargetSrc:https://raw.githubusercontent.com/isaoinvest/gamania-Shopping/main/gamania-Shopping.mind;
                    warmupTolerance: 5;
@@ -171,10 +319,10 @@
       loading-screen="enabled: true; dotsColor: #0ff; backgroundColor: #000"
     >
       <a-assets>
-        <!-- 視頻設置為 preload="none"，只在檢測到目標時載入 -->
         <video
           id="video"
-          preload="none"
+          src="https://pub-ac80c6d0a305452bbe0bdfcec65b6a2c.r2.dev/Rumi480p.mp4"
+          preload="metadata"
           loop
           crossorigin="anonymous"
           playsinline
@@ -208,190 +356,6 @@
 
     <script>
       (function initApp() {
-        // 延遲載入非關鍵CSS
-        function loadNonCriticalCSS() {
-          const style = document.createElement('style');
-          style.textContent = `
-            /* 非關鍵樣式 - 延遲載入 */
-            #controls-container, #fullscreen-controls {
-              position: fixed;
-              bottom: 30px;
-              left: 50%;
-              transform: translateX(-50%);
-              z-index: 1000;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              gap: 15px;
-              transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
-              pointer-events: auto;
-            }
-
-            #controls-container.hidden {
-              opacity: 0;
-              visibility: hidden;
-              pointer-events: none;
-              transform: translateX(-50%) translateY(50px);
-            }
-
-            #fullscreen-controls {
-              z-index: 10001;
-              opacity: 0;
-              visibility: hidden;
-              pointer-events: none;
-            }
-
-            #fullscreen-controls.visible {
-              opacity: 1;
-              visibility: visible;
-              pointer-events: auto;
-            }
-
-            .progress-bar-container {
-              display: flex;
-              align-items: center;
-              background-color: rgba(0, 0, 0, 0.6);
-              border-radius: 20px;
-              padding: 8px 16px;
-              backdrop-filter: blur(10px);
-              gap: 10px;
-              min-width: 200px;
-              border: 1px solid rgba(255, 255, 255, 0.2);
-            }
-
-            .playback-buttons-group {
-              display: flex;
-              gap: 10px;
-              align-items: center;
-            }
-
-            .time-display {
-              color: rgba(255, 255, 255, 0.9);
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-              font-size: 11px;
-              font-weight: 500;
-              min-width: 30px;
-              text-align: center;
-            }
-
-            .progress-slider {
-              flex: 1;
-              height: 4px;
-              background: rgba(255, 255, 255, 0.3);
-              border-radius: 2px;
-              outline: none;
-              cursor: pointer;
-              margin: 0 8px;
-              -webkit-appearance: none;
-              appearance: none;
-            }
-
-            .progress-slider:hover {
-              height: 6px;
-            }
-
-            .progress-slider::-webkit-slider-thumb {
-              appearance: none;
-              width: 12px;
-              height: 12px;
-              border-radius: 50%;
-              background: #ffffff;
-              cursor: pointer;
-              box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
-            }
-
-            .progress-slider::-moz-range-thumb {
-              width: 12px;
-              height: 12px;
-              border-radius: 50%;
-              background: #ffffff;
-              cursor: pointer;
-              border: none;
-              box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
-            }
-
-            .icon-button {
-              width: 40px;
-              height: 40px;
-              background-color: rgba(0, 0, 0, 0.6);
-              border: 1px solid rgba(255, 255, 255, 0.2);
-              border-radius: 20px;
-              cursor: pointer;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              transition: all 0.2s ease;
-              backdrop-filter: blur(10px);
-            }
-
-            .icon-button:hover {
-              background-color: rgba(255, 255, 255, 0.1);
-              border-color: rgba(255, 255, 255, 0.4);
-              transform: scale(1.05);
-            }
-
-            .icon-button.active {
-              background-color: rgba(0, 195, 255, 0.3);
-              border-color: rgba(0, 255, 255, 0.8);
-            }
-
-            .icon-button svg {
-              width: 18px;
-              height: 18px;
-              fill: white;
-            }
-
-            #screen-overlay {
-              position: fixed;
-              top: 0;
-              left: 0;
-              width: 100vw;
-              height: 100vh;
-              z-index: 999;
-              pointer-events: none;
-              cursor: pointer;
-            }
-
-            #screen-overlay.active {
-              pointer-events: auto;
-            }
-
-            #fullscreen-container {
-              position: fixed;
-              top: 0;
-              left: 0;
-              width: 100vw;
-              height: 100vh;
-              z-index: 10000;
-              background-color: rgba(0, 0, 0, 0.98);
-              opacity: 0;
-              visibility: hidden;
-              transition: opacity 0.3s ease;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              cursor: pointer;
-            }
-
-            #fullscreen-container.visible {
-              opacity: 1;
-              visibility: visible;
-            }
-
-            #fullscreen-video {
-              max-width: 95vw;
-              max-height: 95vh;
-              object-fit: contain;
-            }
-          `;
-          document.head.appendChild(style);
-          
-          // 標記UI控制項已載入樣式
-          document.querySelectorAll('.ui-controls').forEach(el => {
-            el.classList.add('loaded');
-          });
-        }
-
         // 註冊 A-Frame 組件
         AFRAME.registerComponent("fit-video-to-target-ratio", {
           schema: { videoSelector: { type: "string" } },
@@ -453,39 +417,8 @@
           isFullscreen: false,
           isDragging: false,
           controlsTimer: null,
-          fullscreenTimer: null,
-          videoLoaded: false,
-          videoUrl: 'https://pub-ac80c6d0a305452bbe0bdfcec65b6a2c.r2.dev/Rumi480p.mp4'
+          fullscreenTimer: null
         };
-
-        // 視頻資源載入管理
-        function loadVideoResource() {
-          if (state.videoLoaded) return;
-          
-          console.log('開始載入視頻資源...');
-          els.video.src = state.videoUrl;
-          els.video.preload = "metadata";
-          els.video.load();
-          state.videoLoaded = true;
-          
-          els.video.addEventListener('loadeddata', () => {
-            console.log('視頻資源載入完成');
-          }, { once: true });
-        }
-
-        function unloadVideoResource() {
-          if (!state.videoLoaded) return;
-          
-          console.log('釋放視頻資源...');
-          els.video.pause();
-          els.video.src = '';
-          els.video.preload = "none";
-          els.video.currentTime = 0;
-          state.videoLoaded = false;
-          state.isPlaying = false;
-          updatePlayButtons();
-          stopProgressUpdate();
-        }
 
         // 定時器管理
         function clearTimer(type) {
@@ -679,7 +612,7 @@
 
         // 全螢幕控制
         function enterFullscreen() {
-          if (!state.videoLoaded || !state.isTargetVisible) return;
+          if (!els.video.src || !state.isTargetVisible) return;
           
           pauseVideo(els.video);
           
@@ -759,45 +692,31 @@
         function onTargetFound() {
           if (state.isFullscreen) return;
           
-          console.log('檢測到AR目標，開始載入視頻...');
-          
-          // 載入視頻資源
-          loadVideoResource();
-          
           state.isTargetVisible = true;
           els.scanningOverlay.style.display = 'none';
           els.scanningOverlay.classList.add("hidden");
           
-          // 等待視頻載入後播放
-          const handleVideoReady = () => {
-            // 重置視頻時間
-            if (els.video.currentTime > 0) {
-              els.video.currentTime = 0;
-            }
-            
-            playVideo(els.video);
-            showControls();
-            
-            // 更新進度顯示
-            updateProgress();
-          };
+          // 重置視頻時間
+          if (els.video.currentTime > 0) {
+            els.video.currentTime = 0;
+          }
           
-          if (els.video.readyState >= 2) {
-            handleVideoReady();
+          playVideo(els.video);
+          showControls();
+          
+          // 更新進度顯示
+          if (els.video.duration) {
+            updateProgress();
           } else {
-            els.video.addEventListener('loadeddata', handleVideoReady, { once: true });
+            els.video.addEventListener('loadedmetadata', updateProgress, { once: true });
           }
         }
 
         function onTargetLost() {
           if (state.isFullscreen) return;
           
-          console.log('AR目標丟失，釋放視頻資源...');
-          
           state.isTargetVisible = false;
-          
-          // 釋放視頻資源以節省記憶體
-          unloadVideoResource();
+          pauseVideo(els.video);
           
           els.scanningOverlay.style.display = 'flex';
           els.scanningOverlay.classList.remove("hidden");
@@ -872,13 +791,9 @@
 
         // 初始化
         function initialize() {
-          // 延遲載入非關鍵CSS
-          setTimeout(loadNonCriticalCSS, 100);
-          
           updatePlayButtons();
           setupEventListeners();
-          
-          console.log('AR應用程式初始化完成，等待檢測目標...');
+          els.video.load();
         }
 
         // 執行初始化
