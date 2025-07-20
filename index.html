@@ -26,15 +26,50 @@
         transform: translateX(-50%);
         z-index: 1000;
         display: flex;
-        gap: 15px;
+        flex-direction: column-reverse; /* 讓進度條在上方 */
+        align-items: center;
+        gap: 12px; /* 進度條和按鈕的間距 */
+        width: 80%;
+        max-width: 250px;
+        transition: opacity 0.4s ease-in-out; /* 用於自動隱藏動畫 */
       }
 
-      /* --- 圖示按鈕統一樣式 --- */
+      #controls-container.controls-hidden {
+          opacity: 0;
+          pointer-events: none;
+      }
+
+      #button-row {
+          display: flex;
+          gap: 15px;
+      }
+
+      /* --- 新增：進度條樣式 --- */
+      #progress-bar-container {
+        width: 100%;
+        height: 4px;
+        background-color: rgba(255, 255, 255, 0.25);
+        border-radius: 4px;
+        overflow: hidden;
+        cursor: default;
+      }
+
+      #progress-bar-fill {
+          width: 0%;
+          height: 100%;
+          background-color: #00ffff;
+          border-radius: 4px;
+          transition: width 0.1s linear; /* 平滑更新進度 */
+      }
+
+      /* --- 圖示按鈕統一樣式 (時尚感) --- */
       .icon-button {
-        width: 50px;
-        height: 50px;
-        background-color: rgba(0, 0, 0, 0.6);
-        border: 2px solid rgba(255, 255, 255, 0.5);
+        width: 44px; /* 縮小尺寸 */
+        height: 44px; /* 縮小尺寸 */
+        background-color: rgba(20, 20, 20, 0.7); /* 半透明背景 */
+        -webkit-backdrop-filter: blur(8px); /* 毛玻璃效果 (for Safari) */
+        backdrop-filter: blur(8px); /* 毛玻璃效果 */
+        border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 50%;
         cursor: pointer;
         display: flex;
@@ -53,8 +88,10 @@
       }
 
       .icon-button.active {
-        background-color: rgba(0, 195, 255, 0.4);
+        background-color: rgba(0, 195, 255, 0.5);
         border-color: rgba(0, 255, 255, 0.9);
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
       }
       
       .icon-button.hidden {
@@ -63,8 +100,8 @@
       }
 
       .icon-button svg {
-        width: 60%;
-        height: 60%;
+        width: 55%; /* 微調圖示大小 */
+        height: 55%;
         fill: white;
       }
 
@@ -270,34 +307,28 @@
 
       body.fullscreen-active #controls-container,
       body.fullscreen-active #scanning-overlay {
-        opacity: 0 !important;
-        pointer-events: none !important;
-        transition: opacity 0.2s ease-out;
+        /* 在全螢幕模式下，控制項的顯示/隱藏由JS控制，這裡不做強制隱藏 */
       }
 
       body.fullscreen-active a-scene {
         pointer-events: none;
       }
-
-      /* 輕量化的淡入淡出動畫 */
-      .fade-transition {
-        transition: opacity 0.2s ease-out;
-      }
-
-      .fade-out {
-        opacity: 0;
-      }
     </style>
   </head>
   <body>
     <div id="controls-container">
-      <button class="icon-button" id="audio-button">
-        <svg id="sound-off-icon" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0z" fill="none"/><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
-        <svg id="sound-on-icon" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" style="display: none;"><path d="M0 0h24v24H0z" fill="none"/><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.28 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-      </button>
-      <button class="icon-button" id="continue-play-button">
-         <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0z" fill="none"/><path d="M8 5v14l11-7z"/></svg>
-      </button>
+      <div id="progress-bar-container">
+        <div id="progress-bar-fill"></div>
+      </div>
+      <div id="button-row">
+        <button class="icon-button" id="audio-button">
+          <svg id="sound-off-icon" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0z" fill="none"/><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+          <svg id="sound-on-icon" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" style="display: none;"><path d="M0 0h24v24H0z" fill="none"/><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.28 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+        </button>
+        <button class="icon-button" id="continue-play-button">
+            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0z" fill="none"/><path d="M8 5v14l11-7z"/></svg>
+        </button>
+      </div>
     </div>
 
     <div id="scanning-overlay">
@@ -317,11 +348,11 @@
 
     <a-scene
       mindar-image="imageTargetSrc: https://raw.githubusercontent.com/isaoinvest/gamania-Shopping/main/gamania-Shopping.mind;
-                    warmupTolerance: 5;
-                    missTolerance: 150;
-                    filterMinCF: 0.000001; 
-                    filterBeta: 250;
-                    uiScanning: #scanning-overlay;"
+                       warmupTolerance: 5;
+                       missTolerance: 150;
+                       filterMinCF: 0.000001; 
+                       filterBeta: 250;
+                       uiScanning: #scanning-overlay;"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
       vr-mode-ui="enabled: false"
@@ -401,12 +432,14 @@
             target0: document.querySelector("#target0"),
             target1: document.querySelector("#target1"),
             scanningOverlay: document.getElementById("scanning-overlay"),
+            controlsContainer: document.getElementById("controls-container"),
             continuePlayButton: document.getElementById("continue-play-button"),
             audioButton: document.getElementById("audio-button"),
             soundOnIcon: document.getElementById("sound-on-icon"),
             soundOffIcon: document.getElementById("sound-off-icon"),
             fullscreenContainer: document.getElementById("fullscreen-video-container"),
-            fullscreenVideo: document.getElementById("fullscreen-video")
+            fullscreenVideo: document.getElementById("fullscreen-video"),
+            progressBarFill: document.getElementById("progress-bar-fill")
           };
         }
         return elementsCache;
@@ -458,6 +491,7 @@
           lastActiveVideo: null,
           fullscreenVideoActive: false,
           hasPlayedOnce: false,
+          hideControlsTimeout: null,
         };
 
         // === 效能優化：預篩選有效影片 ===
@@ -465,20 +499,46 @@
           v && v.src && !v.src.includes("YOUR_VIDEO1_URL.mp4")
         );
 
+        // 控制項自動隱藏功能
+        const hideControls = () => els.controlsContainer.classList.add('controls-hidden');
+        const showControls = () => els.controlsContainer.classList.remove('controls-hidden');
+
+        const resetHideTimer = () => {
+            // 只有在 AR 模式或全螢幕模式下才啟用自動隱藏
+            if (state.targetCount > 0 || state.fullscreenVideoActive) {
+                clearTimeout(state.hideControlsTimeout);
+                showControls();
+                state.hideControlsTimeout = setTimeout(hideControls, 5000);
+            } else {
+                // 在掃描模式下，保持顯示
+                clearTimeout(state.hideControlsTimeout);
+                showControls();
+            }
+        };
+
+        // 進度條更新功能
+        const updateProgressBar = (videoEl) => {
+            if (!videoEl || !videoEl.duration) return;
+            const progress = (videoEl.currentTime / videoEl.duration) * 100;
+            els.progressBarFill.style.width = `${progress}%`;
+        };
+        
+        // 為所有相關影片綁定進度更新事件
+        validVideos.forEach(v => v.addEventListener('timeupdate', () => updateProgressBar(v)));
+        els.fullscreenVideo.addEventListener('timeupdate', () => updateProgressBar(els.fullscreenVideo));
+
+
         // 啟用/停用音訊
         function toggleAudio(enable) {
           state.audioEnabled = enable;
-          // 批次更新音訊狀態
           validVideos.forEach(video => video.muted = !enable);
           if (els.fullscreenVideo.src) els.fullscreenVideo.muted = !enable;
           
-          // 批次更新UI
           els.soundOnIcon.style.display = enable ? 'block' : 'none';
           els.soundOffIcon.style.display = enable ? 'none' : 'block';
           els.audioButton.classList.toggle('active', enable);
         }
         
-        // === 效能優化：音訊按鈕設定（延遲綁定） ===
         function setupAudioButton() {
           els.audioButton.addEventListener('click', () => toggleAudio(!state.audioEnabled), { passive: true });
         }
@@ -501,79 +561,33 @@
 
         // === 真正全螢幕API支援 ===
         function requestFullscreen(element) {
-          if (element.requestFullscreen) {
-            return element.requestFullscreen();
-          } else if (element.webkitRequestFullscreen) {
-            return element.webkitRequestFullscreen();
-          } else if (element.mozRequestFullScreen) {
-            return element.mozRequestFullScreen();
-          } else if (element.msRequestFullscreen) {
-            return element.msRequestFullscreen();
-          }
+          if (element.requestFullscreen) return element.requestFullscreen();
+          if (element.webkitRequestFullscreen) return element.webkitRequestFullscreen();
+          if (element.mozRequestFullScreen) return element.mozRequestFullScreen();
+          if (element.msRequestFullscreen) return element.msRequestFullscreen();
           return Promise.resolve();
         }
 
         function exitFullscreen() {
-          if (document.exitFullscreen) {
-            return document.exitFullscreen();
-          } else if (document.webkitExitFullscreen) {
-            return document.webkitExitFullscreen();
-          } else if (document.mozCancelFullScreen) {
-            return document.mozCancelFullScreen();
-          } else if (document.msExitFullscreen) {
-            return document.msExitFullscreen();
-          }
+          if (document.exitFullscreen) return document.exitFullscreen();
+          if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+          if (document.mozCancelFullScreen) return document.mozCancelFullScreen();
+          if (document.msExitFullscreen) return document.msExitFullscreen();
           return Promise.resolve();
         }
 
         function isFullscreen() {
-          return !!(document.fullscreenElement || 
-                   document.webkitFullscreenElement || 
-                   document.mozFullScreenElement || 
-                   document.msFullscreenElement);
+          return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
         }
 
         // === 瀏覽器模式強制全螢幕處理 ===
         function forceFullscreenMode(enable) {
           if (enable) {
-            // 添加全螢幕狀態到 body
             document.body.classList.add('fullscreen-active');
-            
-            // 嘗試隱藏地址欄（滾動技巧）
             window.scrollTo(0, 1);
             setTimeout(() => window.scrollTo(0, 0), 100);
-            
-            // 嘗試觸發瀏覽器自動隱藏UI
-            if (window.innerHeight < screen.height) {
-              // 檢測是否在瀏覽器模式（而非PWA模式）
-              const isInBrowserMode = window.navigator.standalone !== true && 
-                                    !window.matchMedia('(display-mode: standalone)').matches;
-              
-              if (isInBrowserMode) {
-                // 瀏覽器模式下的特殊處理
-                document.documentElement.style.overflow = 'hidden';
-                document.body.style.overflow = 'hidden';
-                
-                // 模擬用戶滾動來隱藏UI
-                const hideUI = () => {
-                  window.scrollTo(0, 1);
-                  setTimeout(() => {
-                    window.scrollTo(0, 0);
-                    els.fullscreenContainer.scrollTop = 0;
-                  }, 50);
-                };
-                
-                hideUI();
-                // 延遲再次嘗試
-                setTimeout(hideUI, 200);
-                setTimeout(hideUI, 500);
-              }
-            }
           } else {
-            // 移除全螢幕狀態
             document.body.classList.remove('fullscreen-active');
-            document.documentElement.style.overflow = '';
-            document.body.style.overflow = '';
           }
         }
 
@@ -581,34 +595,19 @@
         function switchToFullscreenVideo(sourceVideoEl) {
           if (!sourceVideoEl || !sourceVideoEl.src || sourceVideoEl.src.includes("YOUR_VIDEO1_URL.mp4")) return;
           
-          // 批次設定屬性
           Object.assign(els.fullscreenVideo, {
             src: sourceVideoEl.src,
             currentTime: sourceVideoEl.currentTime,
             muted: !state.audioEnabled
           });
           
-          // 啟用強制全螢幕模式
           forceFullscreenMode(true);
-          
-          // 顯示全螢幕容器
           els.fullscreenContainer.classList.add("visible");
           state.fullscreenVideoActive = true;
           
-          // 嘗試進入真正的全螢幕模式
-          const tryFullscreen = () => {
-            if (screen.orientation && screen.orientation.angle !== 0) {
-              // 橫式時嘗試全螢幕API
-              requestFullscreen(els.fullscreenContainer).catch(() => {
-                console.log("全螢幕API不可用，使用強制模式");
-              });
-            }
-          };
+          resetHideTimer();
           
-          // 立即嘗試，並在短暫延遲後再次嘗試
-          tryFullscreen();
-          setTimeout(tryFullscreen, 100);
-          
+          requestFullscreen(els.fullscreenContainer).catch(() => {});
           playVideo(els.fullscreenVideo);
         }
 
@@ -619,18 +618,16 @@
             targetVideoEl.currentTime = els.fullscreenVideo.currentTime;
           }
           
-          // 退出瀏覽器全螢幕
           if (isFullscreen()) {
             exitFullscreen().catch(() => {});
           }
           
-          // 關閉強制全螢幕模式
           forceFullscreenMode(false);
-          
           els.fullscreenContainer.classList.remove("visible");
           state.fullscreenVideoActive = false;
+
+          resetHideTimer();
           
-          // 延遲清理以配合動畫
           setTimeout(() => {
             els.fullscreenVideo.pause();
             els.fullscreenVideo.src = "";
@@ -640,80 +637,42 @@
         // === 效能優化：事件處理（瀏覽器模式全螢幕退出） ===
         els.fullscreenContainer.addEventListener("click", () => {
           if (state.fullscreenVideoActive) {
-            // 退出瀏覽器全螢幕
-            if (isFullscreen()) {
-              exitFullscreen().catch(() => {});
-            }
-            
-            // 關閉強制全螢幕模式
-            forceFullscreenMode(false);
-            
-            els.fullscreenContainer.classList.remove("visible");
-            state.fullscreenVideoActive = false;
+            switchFromFullscreenVideo(state.lastActiveVideo);
             state.continuePlayEnabled = false;
             els.continuePlayButton.classList.remove("active");
-            
-            setTimeout(() => {
-              els.fullscreenVideo.pause();
-              els.fullscreenVideo.src = "";
-            }, 250);
             
             if (state.targetCount > 0 && state.lastActiveVideo) {
               playVideo(state.lastActiveVideo);
             }
-            
             if (state.targetCount === 0) {
               els.scanningOverlay.classList.remove("hidden");
             }
           }
         }, { passive: true });
 
-        // 監聽全螢幕狀態變化
         const fullscreenChangeHandler = () => {
           if (!isFullscreen() && state.fullscreenVideoActive) {
-            // 如果使用者通過其他方式退出全螢幕，同步狀態
-            forceFullscreenMode(false);
-            els.fullscreenContainer.classList.remove("visible");
-            state.fullscreenVideoActive = false;
-            state.continuePlayEnabled = false;
-            els.continuePlayButton.classList.remove("active");
-            
-            setTimeout(() => {
-              els.fullscreenVideo.pause();
-              els.fullscreenVideo.src = "";
-            }, 250);
-            
-            if (state.targetCount > 0 && state.lastActiveVideo) {
-              playVideo(state.lastActiveVideo);
-            }
-            
-            if (state.targetCount === 0) {
-              els.scanningOverlay.classList.remove("hidden");
-            }
+             switchFromFullscreenVideo(state.lastActiveVideo);
+             state.continuePlayEnabled = false;
+             els.continuePlayButton.classList.remove("active");
+
+             if (state.targetCount > 0 && state.lastActiveVideo) {
+                playVideo(state.lastActiveVideo);
+             }
+             if (state.targetCount === 0) {
+                els.scanningOverlay.classList.remove("hidden");
+             }
           }
         };
 
         // 綁定全螢幕變化事件
         document.addEventListener('fullscreenchange', fullscreenChangeHandler, { passive: true });
         document.addEventListener('webkitfullscreenchange', fullscreenChangeHandler, { passive: true });
-        document.addEventListener('mozfullscreenchange', fullscreenChangeHandler, { passive: true });
-        document.addEventListener('MSFullscreenChange', fullscreenChangeHandler, { passive: true });
-
-        // === 瀏覽器模式特殊處理 ===
-        // 監聽視窗大小變化，嘗試保持全螢幕效果
-        let resizeTimeout;
-        window.addEventListener('resize', () => {
-          if (state.fullscreenVideoActive) {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-              // 重新應用強制全螢幕
-              if (document.body.classList.contains('fullscreen-active')) {
-                window.scrollTo(0, 1);
-                setTimeout(() => window.scrollTo(0, 0), 50);
-              }
-            }, 100);
-          }
-        }, { passive: true });
+        
+        // 綁定互動事件以重置計時器
+        ['mousemove', 'mousedown', 'touchstart'].forEach(evt => 
+            document.addEventListener(evt, resetHideTimer, { passive: true })
+        );
 
         // 設定持續播放按鈕
         els.continuePlayButton.addEventListener("click", () => {
@@ -744,31 +703,9 @@
               els.scanningOverlay.classList.remove("hidden");
             }
           }
+          resetHideTimer();
         }, { passive: true });
 
-        // === 螢幕方向變化處理（瀏覽器模式優化） ===
-        const handleOrientationChange = () => {
-          // 如果在全螢幕模式且切換到橫式
-          if (state.fullscreenVideoActive) {
-            if (screen.orientation && screen.orientation.angle !== 0) {
-              // 橫式時重新應用強制全螢幕
-              setTimeout(() => {
-                forceFullscreenMode(true);
-                if (!isFullscreen()) {
-                  requestFullscreen(els.fullscreenContainer).catch(() => {});
-                }
-              }, 300); // 給螢幕旋轉一些時間
-            }
-          }
-        };
-
-        // 監聽螢幕方向變化
-        if (screen.orientation) {
-          screen.orientation.addEventListener('change', handleOrientationChange, { passive: true });
-        } else {
-          // 備用方案
-          window.addEventListener('orientationchange', handleOrientationChange, { passive: true });
-        }
 
         // === 效能優化：目標事件處理 ===
         const targetFound = (videoEl, otherVideoEl) => {
@@ -791,6 +728,8 @@
             clearTimeout(state.overlayTimer);
             state.overlayTimer = null;
           }
+          
+          resetHideTimer();
         };
 
         const targetLost = (videoEl) => {
@@ -810,6 +749,7 @@
               }
             }, SCAN_OVERLAY_DELAY);
           }
+          resetHideTimer();
         };
 
         // === 效能優化：條件式事件監聽器綁定 ===
@@ -839,15 +779,16 @@
 
         // === 效能優化：延遲初始化 ===
         const sceneEl = document.querySelector("a-scene");
-        const initAudio = () => {
+        const initUI = () => {
           setupAudioButton();
-          sceneEl.removeEventListener('loaded', initAudio);
+          showControls();
+          sceneEl.removeEventListener('loaded', initUI);
         };
         
         if (sceneEl.hasLoaded) {
-          setupAudioButton();
+          initUI();
         } else {
-          sceneEl.addEventListener('loaded', initAudio, { once: true });
+          sceneEl.addEventListener('loaded', initUI, { once: true });
         }
       }
     </script>
