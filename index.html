@@ -15,9 +15,9 @@
     <link rel="preconnect" href="https://pub-ac80c6d0a305452bbe0bdfcec65b6a2c.r2.dev" crossorigin>
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     
-    <!-- 延遲載入非關鍵資源 -->
-    <script src="https://cdn.jsdelivr.net/gh/isaoinvest/ar-libs/aframe.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/gh/isaoinvest/ar-libs/mindar-image-aframe.prod.js" defer></script>
+    <!-- 關鍵資源需要同步載入 -->
+    <script src="https://cdn.jsdelivr.net/gh/isaoinvest/ar-libs/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/isaoinvest/ar-libs/mindar-image-aframe.prod.js"></script>
 
     <style>
       /* 效能優化：使用 CSS 變數和硬體加速 */
@@ -405,7 +405,8 @@
                     missTolerance: 150;
                     filterMinCF: 0.000001; 
                     filterBeta: 250;
-                    uiScanning: #scanning-overlay;"
+                    uiScanning: #scanning-overlay;
+                    autoStart: true;"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
       vr-mode-ui="enabled: false"
@@ -725,8 +726,20 @@
 
         // === 初始化函數 ===
         async function initializeApp() {
+          console.log('Initializing app...');
+          
           // 等待 A-Frame 載入
           await waitForAFrame();
+          console.log('A-Frame loaded');
+
+          // 等待場景載入
+          const scene = document.querySelector('a-scene');
+          if (!scene.hasLoaded) {
+            await new Promise(resolve => {
+              scene.addEventListener('loaded', resolve, { once: true });
+            });
+          }
+          console.log('Scene loaded');
 
           // 註冊組件
           registerComponents();
@@ -742,18 +755,26 @@
 
           // 初始化 UI
           uiManager.showControls();
+          
+          console.log('App initialized successfully');
         }
 
         // === 輔助函數 ===
         function waitForAFrame() {
           return new Promise(resolve => {
-            if (window.AFRAME) {
+            if (window.AFRAME && window.AFRAME.components && window.AFRAME.components['mindar-image']) {
               resolve();
             } else {
+              let checkCount = 0;
               const checkInterval = setInterval(() => {
-                if (window.AFRAME) {
+                checkCount++;
+                if (window.AFRAME && window.AFRAME.components && window.AFRAME.components['mindar-image']) {
                   clearInterval(checkInterval);
                   resolve();
+                } else if (checkCount > 100) { // 5秒超時
+                  clearInterval(checkInterval);
+                  console.error('Failed to load A-Frame or MindAR');
+                  resolve(); // 還是繼續執行
                 }
               }, 50);
             }
@@ -987,10 +1008,14 @@
         }
 
         // === 啟動應用程式 ===
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', initializeApp);
+        // 確保在 DOM 完全載入後才初始化
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+          // 給 A-Frame 一點時間完成初始化
+          setTimeout(initializeApp, 100);
         } else {
-          initializeApp();
+          window.addEventListener('load', () => {
+            setTimeout(initializeApp, 100);
+          });
         }
       })();
     </script>
