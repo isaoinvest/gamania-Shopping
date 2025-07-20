@@ -301,7 +301,6 @@
             <video
                 id="ar-video"
                 src="https://pub-ac80c6d0a305452bbe0bdfcec65b6a2c.r2.dev/Pirate%20ship.mp4"
-                preload="auto"
                 loop
                 crossorigin="anonymous"
                 playsinline
@@ -410,7 +409,7 @@
             stopProgressUpdate();
         };
 
--        const togglePlayPause = () => {
+        const togglePlayPause = () => {
             if (!state.isTargetVisible && !state.isFullscreen) return;
             state.isPlaying ? pauseVideo() : playVideo();
             showAndHideControls();
