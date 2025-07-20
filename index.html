@@ -54,6 +54,33 @@
         fill: white;
       }
 
+      /* === 全螢幕播放/暫停按鈕（統一40px） === */
+      #fs-play-pause-button {
+        width: 40px;
+        height: 40px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(10px);
+      }
+
+      #fs-play-pause-button:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+        border-color: rgba(0, 255, 255, 0.6);
+        transform: scale(1.1);
+      }
+
+      #fs-play-pause-button svg {
+        width: 20px;
+        height: 20px;
+        fill: white;
+      }
+
       /* === 控制按鈕容器 === */
       #controls-container {
         position: fixed;
