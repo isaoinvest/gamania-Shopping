@@ -53,7 +53,7 @@
         justify-content: center;
         transition: all 0.2s ease;
         backdrop-filter: blur(10px);
-        flex-shrink: 0; /* 防止按鈕在flex容器中縮小 */
+        flex-shrink: 0;
       }
 
       .icon-button:hover, .fs-icon-button:hover, #fs-play-pause-button:hover {
@@ -189,10 +189,10 @@
         bottom: 0;
         width: 100vw;
         height: 100vh;
-        min-height: 100vh; /* 確保在某些設備上佔滿 */
-        min-height: 100dvh; /* 動態視口單位 */
-        min-height: 100svh; /* 小視口單位 */
-        z-index: 2147483647; /* 確保在最上層 */
+        min-height: 100vh;
+        min-height: 100dvh;
+        min-height: 100svh;
+        z-index: 2147483647;
         background-color: #000000;
         cursor: pointer;
         opacity: 0;
@@ -201,11 +201,9 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        /* 避免 iOS 上的 300ms 點擊延遲 */
         -webkit-transform: translate3d(0, 0, 0);
         transform: translate3d(0, 0, 0);
         overflow: hidden;
-        /* 安全區域邊距，確保內容不被劉海或圓角遮擋 */
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         margin: calc(-1 * env(safe-area-inset-top)) calc(-1 * env(safe-area-inset-right)) calc(-1 * env(safe-area-inset-bottom)) calc(-1 * env(safe-area-inset-left));
       }
@@ -222,7 +220,7 @@
         height: auto;
         transform: scale(0.95);
         transition: transform 0.25s ease-out;
-        object-fit: contain; /* 確保影片完整顯示 */
+        object-fit: contain;
         position: relative;
         z-index: 1;
       }
@@ -269,7 +267,7 @@
 
       #progress-time {
         position: absolute;
-        bottom: 45px; /* 在進度條上方顯示 */
+        bottom: 45px;
         right: 20px;
         color: white;
         font-size: 12px;
@@ -291,13 +289,12 @@
       /* 橫式螢幕優化 */
       @media screen and (orientation: landscape) {
         #fullscreen-video-container {
-          /* 在橫向模式下為影片騰出更多空間，並考慮瀏覽器UI */
           width: 100vw;
           height: 100vh;
           min-height: 100vh;
           min-height: 100dvh;
-          top: -100px; /* 向上移動以隱藏瀏覽器地址欄 */
-          bottom: -100px; /* 向下移動 */
+          top: -100px;
+          bottom: -100px;
           left: -10px;
           right: -10px;
           padding-top: 100px;
@@ -308,7 +305,7 @@
         
         #fullscreen-video {
           max-width: calc(100vw - 20px);
-          max-height: calc(100vh - 200px); /* 考慮控制條和上下邊距 */
+          max-height: calc(100vh - 200px);
           max-height: calc(100dvh - 200px);
         }
       }
@@ -329,7 +326,7 @@
       }
 
       body.fullscreen-active a-scene {
-        pointer-events: none; /* 避免在強制全螢幕時誤觸發AR場景 */
+        pointer-events: none;
       }
 
       /* 動畫優化 - 精簡的淡入淡出過渡 */
@@ -417,7 +414,8 @@
         ></video>
         <video
           id="video1"
-          src="YOUR_VIDEO1_URL.mp4" preload="metadata"
+          src="https://pub-ac80c6d0a305452bbe0bdfcec65b6a2c.r2.dev/Rumi480p.mp4"
+          preload="metadata"
           loop
           crossorigin="anonymous"
           playsinline
@@ -495,7 +493,12 @@
         ];
 
         elements.forEach(({ id, selector }) => {
-          cache[id] = document.querySelector(selector);
+          const element = document.querySelector(selector);
+          if (element) {
+            cache[id] = element;
+          } else {
+            console.warn(`Element not found: ${selector}`);
+          }
         });
         return cache;
       })();
@@ -505,10 +508,15 @@
         if (window.AFRAME) {
           initializeApp();
         } else {
-          document.addEventListener('DOMContentLoaded', initializeOnAframeLoaded);
+          setTimeout(initializeOnAframeLoaded, 100);
         }
       };
-      initializeOnAframeLoaded();
+      
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeOnAframeLoaded);
+      } else {
+        initializeOnAframeLoaded();
+      }
 
       function initializeApp() {
         // === A-Frame 組件註冊 ===
@@ -530,40 +538,28 @@
         });
 
         const SCAN_OVERLAY_DELAY = 200;
-        const AUTO_HIDE_DELAY = 5000; // 5秒自動隱藏
+        const AUTO_HIDE_DELAY = 5000;
 
         // === 自動隱藏管理器 ===
         class AutoHideManager {
           constructor() {
             this.hideTimers = new Map();
-            this.isUserActive = true; // 預設用戶活躍
+            this.isUserActive = true;
           }
 
-          /**
-           * 重置元素的自動隱藏計時器。
-           * @param {string} elementId - 元素的唯一標識符。
-           * @param {HTMLElement} element - 要控制顯示/隱藏的 DOM 元素。
-           * @param {string} [hideClass='hidden'] - 隱藏元素的 CSS 類名。
-           */
           resetTimer(elementId, element, hideClass = 'hidden') {
-            this.clearTimer(elementId); // 清除現有計時器
+            this.clearTimer(elementId);
+            element.classList.remove(hideClass);
 
-            element.classList.remove(hideClass); // 顯示元素
-
-            // 設置新的自動隱藏計時器
             const timer = setTimeout(() => {
-              if (!this.isUserActive) return; // 如果用戶不活躍，不隱藏
+              if (!this.isUserActive) return;
               element.classList.add(hideClass);
-              this.hideTimers.delete(elementId); // 清除計時器引用
+              this.hideTimers.delete(elementId);
             }, AUTO_HIDE_DELAY);
 
             this.hideTimers.set(elementId, timer);
           }
 
-          /**
-           * 清除指定元素的自動隱藏計時器。
-           * @param {string} elementId - 元素的唯一標識符。
-           */
           clearTimer(elementId) {
             if (this.hideTimers.has(elementId)) {
               clearTimeout(this.hideTimers.get(elementId));
@@ -571,14 +567,9 @@
             }
           }
 
-          /**
-           * 設定用戶活動狀態。當用戶不活躍時，所有自動隱藏計時器將被清除。
-           * @param {boolean} active - 用戶是否活躍。
-           */
           setUserActive(active) {
             this.isUserActive = active;
             if (!active) {
-              // 如果用戶不活躍，清除所有計時器以防止意外隱藏
               this.hideTimers.forEach(timer => clearTimeout(timer));
               this.hideTimers.clear();
             }
@@ -591,7 +582,7 @@
         const state = {
           targetCount: 0,
           overlayTimer: null,
-          audioEnabled: false, // 預設音訊關閉
+          audioEnabled: false,
           continuePlayEnabled: false,
           lastActiveVideo: null,
           fullscreenVideoActive: false,
@@ -599,7 +590,7 @@
           progressUpdateInterval: null,
         };
 
-        // === 預篩選有效影片 (排除空 URL) ===
+        // === 預篩選有效影片 ===
         const validVideos = [els.video, els.video1].filter(v => 
           v && v.src && !v.src.includes("YOUR_VIDEO1_URL.mp4")
         );
@@ -614,7 +605,7 @@
 
         // === 進度條更新 ===
         function updateProgress() {
-          if (!state.fullscreenVideoActive || !els.fullscreenVideo.duration) return;
+          if (!state.fullscreenVideoActive || !els.fullscreenVideo?.duration) return;
 
           const progress = (els.fullscreenVideo.currentTime / els.fullscreenVideo.duration) * 100;
           els.progressBar.style.width = `${progress}%`;
@@ -626,22 +617,23 @@
         function toggleAudio(enable) {
           state.audioEnabled = enable;
           
-          // 批次更新所有相關影片和UI的音訊狀態
-          validVideos.forEach(video => video.muted = !enable);
-          if (els.fullscreenVideo.src) els.fullscreenVideo.muted = !enable; // 確保全螢幕影片同步
+          validVideos.forEach(video => {
+            if (video) video.muted = !enable;
+          });
+          if (els.fullscreenVideo?.src) els.fullscreenVideo.muted = !enable;
 
           const displayStyle = enable ? 'block' : 'none';
           const activeClass = 'active';
           
           // 更新主控制按鈕UI
-          els.soundOnIcon.style.display = displayStyle;
-          els.soundOffIcon.style.display = enable ? 'none' : 'block';
-          els.audioButton.classList.toggle(activeClass, enable);
+          if (els.soundOnIcon) els.soundOnIcon.style.display = displayStyle;
+          if (els.soundOffIcon) els.soundOffIcon.style.display = enable ? 'none' : 'block';
+          if (els.audioButton) els.audioButton.classList.toggle(activeClass, enable);
           
           // 更新全螢幕控制按鈕UI
-          els.fsSoundOnIcon.style.display = displayStyle;
-          els.fsSoundOffIcon.style.display = enable ? 'none' : 'block';
-          els.fsAudioButton.classList.toggle(activeClass, enable);
+          if (els.fsSoundOnIcon) els.fsSoundOnIcon.style.display = displayStyle;
+          if (els.fsSoundOffIcon) els.fsSoundOffIcon.style.display = enable ? 'none' : 'block';
+          if (els.fsAudioButton) els.fsAudioButton.classList.toggle(activeClass, enable);
         }
 
         // === 用戶活動檢測 ===
@@ -652,10 +644,11 @@
             autoHideManager.setUserActive(true);
             clearTimeout(activityTimeout);
             
-            // 重置控制按鈕的自動隱藏計時器
-            autoHideManager.resetTimer('main-controls', els.controlsContainer);
+            if (els.controlsContainer) {
+              autoHideManager.resetTimer('main-controls', els.controlsContainer);
+            }
             
-            if (state.fullscreenVideoActive) {
+            if (state.fullscreenVideoActive && els.fullscreenControls) {
               autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
             }
             
@@ -664,23 +657,22 @@
             }, AUTO_HIDE_DELAY);
           };
 
-          // 監聽用戶活動事件 (使用被動事件監聽器優化滾動性能)
           const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'touchmove'];
           events.forEach(event => {
             document.addEventListener(event, resetActivity, { passive: true });
           });
 
-          // 初始重置以確保開始時UI可見
           resetActivity();
         }
 
         // === 真正的全螢幕API支援 ===
         function requestFullscreen(element) {
+          if (!element) return Promise.resolve();
           if (element.requestFullscreen) return element.requestFullscreen();
-          if (element.webkitRequestFullscreen) return element.webkitRequestFullscreen(); // Safari
-          if (element.mozRequestFullScreen) return element.mozRequestFullScreen();     // Firefox
-          if (element.msRequestFullscreen) return element.msRequestFullscreen();       // IE/Edge
-          return Promise.resolve(); // 不支援則直接解決
+          if (element.webkitRequestFullscreen) return element.webkitRequestFullscreen();
+          if (element.mozRequestFullScreen) return element.mozRequestFullScreen();
+          if (element.msRequestFullscreen) return element.msRequestFullscreen();
+          return Promise.resolve();
         }
 
         function exitFullscreen() {
@@ -698,18 +690,16 @@
                    document.msFullscreenElement);
         }
 
-        // === 瀏覽器模式強制全螢幕處理 (用於 iOS Safari 等不支援真全螢幕的場景) ===
+        // === 瀏覽器模式強制全螢幕處理 ===
         function forceFullscreenMode(enable) {
           document.body.classList.toggle('fullscreen-active', enable);
           document.documentElement.style.overflow = enable ? 'hidden' : '';
           document.body.style.overflow = enable ? 'hidden' : '';
 
           if (enable) {
-            // 嘗試隱藏瀏覽器UI，使其看起來更像全螢幕
             window.scrollTo(0, 1);
             setTimeout(() => window.scrollTo(0, 0), 100);
             
-            // 針對某些瀏覽器，確保內容在可視區域內
             if (window.innerHeight < screen.height) {
               const isInBrowserMode = window.navigator.standalone !== true && 
                                     !window.matchMedia('(display-mode: standalone)').matches;
@@ -719,12 +709,12 @@
                   window.scrollTo(0, 1);
                   setTimeout(() => {
                     window.scrollTo(0, 0);
-                    els.fullscreenContainer.scrollTop = 0; // 防止容器內部滾動
+                    if (els.fullscreenContainer) els.fullscreenContainer.scrollTop = 0;
                   }, 50);
                 };
-                hideUI(); // 立即執行一次
-                setTimeout(hideUI, 200); // 延遲執行確保生效
-                setTimeout(hideUI, 500); // 再次延遲執行
+                hideUI();
+                setTimeout(hideUI, 200);
+                setTimeout(hideUI, 500);
               }
             }
           }
@@ -734,13 +724,12 @@
         const playVideo = (videoEl) => {
           if (!videoEl || !videoEl.src || videoEl.src.includes("YOUR_VIDEO1_URL.mp4")) return Promise.resolve();
           return videoEl.play().catch(error => {
-            // 自動播放失敗時嘗試靜音播放
             if (error.name === "NotAllowedError") {
               videoEl.muted = true;
-              toggleAudio(false); // 更新UI為靜音
-              return videoEl.play().catch(() => { /* 靜音播放也失敗則不處理 */ });
+              toggleAudio(false);
+              return videoEl.play().catch(() => {});
             }
-            return Promise.reject(error); // 其他錯誤則拋出
+            return Promise.reject(error);
           });
         };
 
@@ -752,47 +741,43 @@
 
         // === 全螢幕播放/暫停切換 ===
         function toggleFullscreenPlayback() {
-          if (!state.fullscreenVideoActive) return;
+          if (!state.fullscreenVideoActive || !els.fullscreenVideo) return;
           
           if (els.fullscreenVideo.paused) {
             playVideo(els.fullscreenVideo).then(() => {
-              els.fsPlayIcon.style.display = 'none';
-              els.fsPauseIcon.style.display = 'block';
+              if (els.fsPlayIcon) els.fsPlayIcon.style.display = 'none';
+              if (els.fsPauseIcon) els.fsPauseIcon.style.display = 'block';
             });
           } else {
             els.fullscreenVideo.pause();
-            els.fsPlayIcon.style.display = 'block';
-            els.fsPauseIcon.style.display = 'none';
+            if (els.fsPlayIcon) els.fsPlayIcon.style.display = 'block';
+            if (els.fsPauseIcon) els.fsPauseIcon.style.display = 'none';
           }
         }
 
         // === 進入全螢幕影片模式 ===
         function switchToFullscreenVideo(sourceVideoEl) {
-          if (!sourceVideoEl || !sourceVideoEl.src || sourceVideoEl.src.includes("YOUR_VIDEO1_URL.mp4")) return;
+          if (!sourceVideoEl || !sourceVideoEl.src || sourceVideoEl.src.includes("YOUR_VIDEO1_URL.mp4") || !els.fullscreenVideo) return;
           
-          // 將來源影片的狀態同步到全螢幕影片
           els.fullscreenVideo.src = sourceVideoEl.src;
           els.fullscreenVideo.currentTime = sourceVideoEl.currentTime;
-          els.fullscreenVideo.muted = !state.audioEnabled; // 同步音量狀態
+          els.fullscreenVideo.muted = !state.audioEnabled;
           
-          forceFullscreenMode(true); // 啟用強制全螢幕模式
-          els.fullscreenContainer.classList.add("visible");
+          forceFullscreenMode(true);
+          if (els.fullscreenContainer) els.fullscreenContainer.classList.add("visible");
           state.fullscreenVideoActive = true;
           
-          // 開始或重設進度條更新
           if (state.progressUpdateInterval) clearInterval(state.progressUpdateInterval);
           state.progressUpdateInterval = setInterval(updateProgress, 100);
           
-          // 重置全螢幕控制項的自動隱藏計時器
-          autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
+          if (els.fullscreenControls) {
+            autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
+          }
           
-          // 更新播放/暫停按鈕狀態為播放中
-          els.fsPlayIcon.style.display = 'none';
-          els.fsPauseIcon.style.display = 'block';
+          if (els.fsPlayIcon) els.fsPlayIcon.style.display = 'none';
+          if (els.fsPauseIcon) els.fsPauseIcon.style.display = 'block';
           
-          // 嘗試進入真正的全螢幕模式
           const attemptTrueFullscreen = () => {
-            // 僅在橫向模式下嘗試真全螢幕以獲得最佳體驗
             if (screen.orientation && screen.orientation.angle !== 0) {
               requestFullscreen(els.fullscreenContainer).catch(e => {
                 console.log("全螢幕API不可用或被拒絕，使用強制模式", e);
@@ -800,140 +785,150 @@
             }
           };
           attemptTrueFullscreen();
-          setTimeout(attemptTrueFullscreen, 100); // 稍作延遲再嘗試一次
+          setTimeout(attemptTrueFullscreen, 100);
           
-          playVideo(els.fullscreenVideo); // 播放全螢幕影片
+          playVideo(els.fullscreenVideo);
         }
 
         // === 退出全螢幕影片模式 ===
         function exitFullscreenVideoMode(shouldPlayOriginalVideo = true) {
           if (!state.fullscreenVideoActive) return;
 
-          // 同步全螢幕影片的進度到原始影片
-          if (shouldPlayOriginalVideo && state.lastActiveVideo && !els.fullscreenVideo.paused) {
+          if (shouldPlayOriginalVideo && state.lastActiveVideo && els.fullscreenVideo && !els.fullscreenVideo.paused) {
             state.lastActiveVideo.currentTime = els.fullscreenVideo.currentTime;
           }
           
-          // 停止進度條更新
           if (state.progressUpdateInterval) {
             clearInterval(state.progressUpdateInterval);
             state.progressUpdateInterval = null;
           }
           
-          autoHideManager.clearTimer('fullscreen-controls'); // 清除全螢幕控制項計時器
+          autoHideManager.clearTimer('fullscreen-controls');
           
-          // 退出真正的全螢幕和強制瀏覽器全螢幕模式
           if (isFullscreen()) exitFullscreen().catch(() => {});
           forceFullscreenMode(false);
           
-          els.fullscreenContainer.classList.remove("visible");
+          if (els.fullscreenContainer) els.fullscreenContainer.classList.remove("visible");
           state.fullscreenVideoActive = false;
-          state.continuePlayEnabled = false; // 退出全螢幕時關閉持續播放
-          els.continuePlayButton.classList.remove("active");
+          state.continuePlayEnabled = false;
+          if (els.continuePlayButton) els.continuePlayButton.classList.remove("active");
           
-          // 延遲清理以配合動畫過渡
           setTimeout(() => {
-            els.fullscreenVideo.pause();
-            els.fullscreenVideo.src = ""; // 清除影片源
+            if (els.fullscreenVideo) {
+              els.fullscreenVideo.pause();
+              els.fullscreenVideo.src = "";
+            }
           }, 250);
           
-          // 如果退出全螢幕後有目標，繼續播放原始影片
           if (shouldPlayOriginalVideo && state.targetCount > 0 && state.lastActiveVideo) {
             playVideo(state.lastActiveVideo);
-          } else if (state.targetCount === 0) {
-            // 如果沒有目標且不是持續播放，顯示掃描UI
+          } else if (state.targetCount === 0 && els.scanningOverlay) {
             els.scanningOverlay.classList.remove("hidden");
           }
         }
 
         // === 進度條點擊處理 ===
         function setupProgressBar() {
+          if (!els.progressContainer) return;
+          
           els.progressContainer.addEventListener('click', (e) => {
-            if (!state.fullscreenVideoActive || !els.fullscreenVideo.duration) return;
+            if (!state.fullscreenVideoActive || !els.fullscreenVideo?.duration) return;
             
             const rect = els.progressContainer.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
             const progress = clickX / rect.width;
             els.fullscreenVideo.currentTime = progress * els.fullscreenVideo.duration;
             
-            updateProgress(); // 立即更新進度顯示
-            autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls); // 重置自動隱藏計時器
+            updateProgress();
+            if (els.fullscreenControls) {
+              autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
+            }
           }, { passive: true });
         }
 
         // === 事件處理設置 ===
         function setupEventHandlers() {
-          // 音訊開關按鈕 (主介面與全螢幕共用邏輯)
-          els.audioButton.addEventListener('click', () => {
-            toggleAudio(!state.audioEnabled);
-            autoHideManager.resetTimer('main-controls', els.controlsContainer);
-          }, { passive: true });
-
-          els.fsAudioButton.addEventListener('click', () => {
-            toggleAudio(!state.audioEnabled);
-            autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
-          }, { passive: true });
-
-          // 全螢幕播放/暫停按鈕
-          els.fsPlayPauseButton.addEventListener('click', () => {
-            toggleFullscreenPlayback();
-            autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
-          }, { passive: true });
-
-          // 全螢幕退出按鈕
-          els.fsExitButton.addEventListener('click', () => {
-            exitFullscreenVideoMode(true); // 退出並嘗試播放原始影片
-          }, { passive: true });
-
-          // 全螢幕容器點擊 (用於顯示/隱藏控制項)
-          els.fullscreenContainer.addEventListener("click", (e) => {
-            // 僅在點擊影片或背景區域時重置計時器，不點擊控制項本身
-            if (e.target === els.fullscreenContainer || e.target === els.fullscreenVideo) {
-              autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
-            }
-          }, { passive: true });
-
-          // 持續播放按鈕
-          els.continuePlayButton.addEventListener("click", () => {
-            if (!state.hasPlayedOnce) return; // 影片必須至少播放過一次才能啟用持續播放
-            
-            state.continuePlayEnabled = !state.continuePlayEnabled;
-            els.continuePlayButton.classList.toggle("active", state.continuePlayEnabled);
-            
-            autoHideManager.resetTimer('main-controls', els.controlsContainer);
-            
-            if (state.continuePlayEnabled) {
-              // 持續播放啟用時的邏輯
-              if (state.targetCount === 0) {
-                // 如果目前沒有目標，進入全螢幕播放上次的影片
-                if (state.lastActiveVideo) {
-                  switchToFullscreenVideo(state.lastActiveVideo);
-                }
-                els.scanningOverlay.classList.add("hidden");
-              } else if (state.lastActiveVideo && state.lastActiveVideo.paused) {
-                // 如果有目標但影片暫停，則播放
-                playVideo(state.lastActiveVideo);
+          if (els.audioButton) {
+            els.audioButton.addEventListener('click', () => {
+              toggleAudio(!state.audioEnabled);
+              if (els.controlsContainer) {
+                autoHideManager.resetTimer('main-controls', els.controlsContainer);
               }
-            } else {
-              // 持續播放停用時的邏輯
-              if (state.fullscreenVideoActive) {
-                exitFullscreenVideoMode(true); // 退出全螢幕並播放原始影片
-              } else if (state.targetCount === 0) {
-                // 如果沒有目標，則暫停影片並顯示掃描UI
-                if (state.lastActiveVideo && !state.lastActiveVideo.paused) {
-                  pauseVideo(state.lastActiveVideo);
-                }
-                els.scanningOverlay.classList.remove("hidden");
+            }, { passive: true });
+          }
+
+          if (els.fsAudioButton) {
+            els.fsAudioButton.addEventListener('click', () => {
+              toggleAudio(!state.audioEnabled);
+              if (els.fullscreenControls) {
+                autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
               }
-            }
-          }, { passive: true });
+            }, { passive: true });
+          }
+
+          if (els.fsPlayPauseButton) {
+            els.fsPlayPauseButton.addEventListener('click', () => {
+              toggleFullscreenPlayback();
+              if (els.fullscreenControls) {
+                autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
+              }
+            }, { passive: true });
+          }
+
+          if (els.fsExitButton) {
+            els.fsExitButton.addEventListener('click', () => {
+              exitFullscreenVideoMode(true);
+            }, { passive: true });
+          }
+
+          if (els.fullscreenContainer) {
+            els.fullscreenContainer.addEventListener("click", (e) => {
+              if (e.target === els.fullscreenContainer || e.target === els.fullscreenVideo) {
+                if (els.fullscreenControls) {
+                  autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
+                }
+              }
+            }, { passive: true });
+          }
+
+          if (els.continuePlayButton) {
+            els.continuePlayButton.addEventListener("click", () => {
+              if (!state.hasPlayedOnce) return;
+              
+              state.continuePlayEnabled = !state.continuePlayEnabled;
+              els.continuePlayButton.classList.toggle("active", state.continuePlayEnabled);
+              
+              if (els.controlsContainer) {
+                autoHideManager.resetTimer('main-controls', els.controlsContainer);
+              }
+              
+              if (state.continuePlayEnabled) {
+                if (state.targetCount === 0) {
+                  if (state.lastActiveVideo) {
+                    switchToFullscreenVideo(state.lastActiveVideo);
+                  }
+                  if (els.scanningOverlay) els.scanningOverlay.classList.add("hidden");
+                } else if (state.lastActiveVideo && state.lastActiveVideo.paused) {
+                  playVideo(state.lastActiveVideo);
+                }
+              } else {
+                if (state.fullscreenVideoActive) {
+                  exitFullscreenVideoMode(true);
+                } else if (state.targetCount === 0) {
+                  if (state.lastActiveVideo && !state.lastActiveVideo.paused) {
+                    pauseVideo(state.lastActiveVideo);
+                  }
+                  if (els.scanningOverlay) els.scanningOverlay.classList.remove("hidden");
+                }
+              }
+            }, { passive: true });
+          }
         }
 
-        // === 全螢幕狀態變化監聽 (處理用戶手動退出全螢幕) ===
+        // === 全螢幕狀態變化監聽 ===
         function setupFullscreenListeners() {
           const fullscreenChangeHandler = () => {
             if (!isFullscreen() && state.fullscreenVideoActive) {
-              // 當從真全螢幕模式退出時，同步更新應用狀態
               exitFullscreenVideoMode(true);
             }
           };
@@ -948,11 +943,10 @@
         function setupOrientationHandlers() {
           const handleOrientationChange = () => {
             if (state.fullscreenVideoActive) {
-              // 在全螢幕模式下，螢幕方向變化時嘗試重新進入真全螢幕
               if (screen.orientation && screen.orientation.angle !== 0) {
                 setTimeout(() => {
-                  forceFullscreenMode(true); // 再次應用強制全螢幕樣式
-                  if (!isFullscreen()) {
+                  forceFullscreenMode(true);
+                  if (!isFullscreen() && els.fullscreenContainer) {
                     requestFullscreen(els.fullscreenContainer).catch(() => {});
                   }
                 }, 300);
@@ -963,17 +957,14 @@
           if (screen.orientation) {
             screen.orientation.addEventListener('change', handleOrientationChange, { passive: true });
           } else {
-            // 兼容舊版瀏覽器
             window.addEventListener('orientationchange', handleOrientationChange, { passive: true });
           }
 
-          // 視窗大小變化處理 (iOS Safari 會觸發 resize)
           let resizeTimeout;
           window.addEventListener('resize', () => {
             if (state.fullscreenVideoActive) {
               clearTimeout(resizeTimeout);
               resizeTimeout = setTimeout(() => {
-                // 嘗試在resize後隱藏瀏覽器UI
                 if (document.body.classList.contains('fullscreen-active')) {
                   window.scrollTo(0, 1);
                   setTimeout(() => window.scrollTo(0, 0), 50);
@@ -992,15 +983,14 @@
             state.lastActiveVideo = videoEl;
             state.hasPlayedOnce = true;
             
-            if (otherVideoEl) pauseVideo(otherVideoEl); // 暫停其他影片
+            if (otherVideoEl) pauseVideo(otherVideoEl);
 
-            // 如果目前在全螢幕模式下播放的正是當前目標影片，則退出全螢幕
-            if (state.fullscreenVideoActive && els.fullscreenVideo.src === videoEl.src) {
-              exitFullscreenVideoMode(false); // 退出但不播放原始影片 (因為目標已找到)
+            if (state.fullscreenVideoActive && els.fullscreenVideo?.src === videoEl.src) {
+              exitFullscreenVideoMode(false);
             }
 
             playVideo(videoEl);
-            els.scanningOverlay.classList.add("hidden"); // 隱藏掃描UI
+            if (els.scanningOverlay) els.scanningOverlay.classList.add("hidden");
             
             if (state.overlayTimer) {
               clearTimeout(state.overlayTimer);
@@ -1014,22 +1004,19 @@
             if (state.targetCount > 0) state.targetCount--;
 
             if (state.continuePlayEnabled && state.targetCount === 0) {
-              // 如果開啟持續播放且所有目標都丟失，則進入全螢幕播放
               switchToFullscreenVideo(videoEl);
             } else if (state.targetCount === 0) {
-              // 如果沒有目標且未開啟持續播放，則暫停影片並顯示掃描UI
               pauseVideo(videoEl);
 
               if (state.overlayTimer) clearTimeout(state.overlayTimer);
               state.overlayTimer = setTimeout(() => {
-                if (state.targetCount === 0 && !state.continuePlayEnabled) {
+                if (state.targetCount === 0 && !state.continuePlayEnabled && els.scanningOverlay) {
                   els.scanningOverlay.classList.remove("hidden");
                 }
               }, SCAN_OVERLAY_DELAY);
             }
           };
 
-          // 綁定目標事件監聽器 (確保元素存在且影片URL有效)
           if (els.target0 && els.video) {
             els.target0.addEventListener("targetFound", () => targetFound(els.video, els.video1));
             els.target0.addEventListener("targetLost", () => targetLost(els.video));
@@ -1041,26 +1028,25 @@
           }
         }
 
-        // === 頁面可見性處理 (用於頁面切換到後台時暫停，回到前台時恢復) ===
+        // === 頁面可見性處理 ===
         function setupVisibilityHandlers() {
           document.addEventListener("visibilitychange", () => {
             if (document.visibilityState === "hidden") {
-              validVideos.forEach(pauseVideo); // 暫停所有AR影片
-              if (state.fullscreenVideoActive) els.fullscreenVideo.pause(); // 暫停全螢幕影片
-              autoHideManager.setUserActive(false); // 用戶不活躍，清除計時器
+              validVideos.forEach(pauseVideo);
+              if (state.fullscreenVideoActive && els.fullscreenVideo) els.fullscreenVideo.pause();
+              autoHideManager.setUserActive(false);
             } else if (document.visibilityState === "visible") {
-              autoHideManager.setUserActive(true); // 用戶活躍，重置計時器
-              if (state.fullscreenVideoActive) {
-                playVideo(els.fullscreenVideo).catch(() => {}); // 嘗試恢復全螢幕影片播放
+              autoHideManager.setUserActive(true);
+              if (state.fullscreenVideoActive && els.fullscreenVideo) {
+                playVideo(els.fullscreenVideo).catch(() => {});
               } else if (state.targetCount > 0 && state.lastActiveVideo) {
-                playVideo(state.lastActiveVideo); // 如果有目標，恢復AR影片播放
+                playVideo(state.lastActiveVideo);
               }
             }
           }, { passive: true });
         }
 
         // === 初始化所有功能 ===
-        // 將所有功能模塊化並在應用啟動時調用
         function initializeFeatures() {
           setupUserActivityDetection();
           setupProgressBar();
@@ -1069,15 +1055,18 @@
           setupOrientationHandlers();
           setupTargetHandlers();
           setupVisibilityHandlers();
-          toggleAudio(state.audioEnabled); // 根據初始狀態設定音訊UI
+          toggleAudio(state.audioEnabled);
         }
 
-        // 場景載入完成後初始化所有功能，確保 DOM 元素和 A-Frame 場景都已準備就緒
+        // 場景載入完成後初始化所有功能
         const sceneEl = document.querySelector("a-scene");
-        if (sceneEl.hasLoaded) {
+        if (sceneEl && sceneEl.hasLoaded) {
           initializeFeatures();
-        } else {
+        } else if (sceneEl) {
           sceneEl.addEventListener('loaded', initializeFeatures, { once: true });
+        } else {
+          // 如果場景元素不存在，直接初始化
+          setTimeout(initializeFeatures, 1000);
         }
       }
     </script>
