@@ -238,12 +238,15 @@
         background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
         padding: 20px 20px 30px;
         opacity: 1;
-        transition: opacity 0.3s ease;
-        z-index: 10;
+        visibility: visible;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+        z-index: 2147483648; /* 確保在全螢幕容器之上 */
+        pointer-events: auto;
       }
 
       #fullscreen-controls.hidden {
         opacity: 0;
+        visibility: hidden;
         pointer-events: none;
       }
 
@@ -255,6 +258,8 @@
         border-radius: 3px;
         overflow: hidden;
         cursor: pointer;
+        position: relative;
+        z-index: 2147483649;
       }
 
       #progress-bar {
@@ -263,6 +268,8 @@
         width: 0%;
         transition: width 0.1s ease;
         border-radius: 3px;
+        position: relative;
+        z-index: 2147483650;
       }
 
       #progress-time {
@@ -276,6 +283,8 @@
         padding: 4px 8px;
         border-radius: 12px;
         backdrop-filter: blur(5px);
+        z-index: 2147483649;
+        pointer-events: none;
       }
 
       /* === 全螢幕按鈕區域 === */
@@ -284,6 +293,25 @@
         justify-content: center;
         gap: 15px;
         align-items: center;
+        position: relative;
+        z-index: 2147483649;
+      }
+
+      /* 確保全螢幕按鈕可見且可點擊 */
+      #fullscreen-controls .fs-icon-button,
+      #fullscreen-controls #fs-play-pause-button {
+        position: relative;
+        z-index: 2147483650;
+        pointer-events: auto;
+        background-color: rgba(0, 0, 0, 0.8);
+        border: 2px solid rgba(255, 255, 255, 0.4);
+      }
+
+      #fullscreen-controls .fs-icon-button:hover,
+      #fullscreen-controls #fs-play-pause-button:hover {
+        background-color: rgba(0, 0, 0, 0.95);
+        border-color: rgba(0, 255, 255, 0.8);
+        transform: scale(1.1);
       }
 
       /* 橫式螢幕優化 */
@@ -649,6 +677,8 @@
             }
             
             if (state.fullscreenVideoActive && els.fullscreenControls) {
+              // 在全螢幕模式下，用戶活動時確保控制項可見
+              els.fullscreenControls.classList.remove('hidden');
               autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
             }
             
@@ -770,7 +800,9 @@
           if (state.progressUpdateInterval) clearInterval(state.progressUpdateInterval);
           state.progressUpdateInterval = setInterval(updateProgress, 100);
           
+          // 確保全螢幕控制項可見並設置自動隱藏
           if (els.fullscreenControls) {
+            els.fullscreenControls.classList.remove("hidden");
             autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
           }
           
@@ -883,8 +915,25 @@
 
           if (els.fullscreenContainer) {
             els.fullscreenContainer.addEventListener("click", (e) => {
+              // 點擊影片區域或背景時顯示控制項
               if (e.target === els.fullscreenContainer || e.target === els.fullscreenVideo) {
                 if (els.fullscreenControls) {
+                  // 如果控制項已隱藏，則顯示並重置計時器
+                  if (els.fullscreenControls.classList.contains('hidden')) {
+                    els.fullscreenControls.classList.remove('hidden');
+                  }
+                  autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
+                }
+              }
+            }, { passive: true });
+            
+            // 添加觸摸事件支援移動設備
+            els.fullscreenContainer.addEventListener("touchstart", (e) => {
+              if (e.target === els.fullscreenContainer || e.target === els.fullscreenVideo) {
+                if (els.fullscreenControls) {
+                  if (els.fullscreenControls.classList.contains('hidden')) {
+                    els.fullscreenControls.classList.remove('hidden');
+                  }
                   autoHideManager.resetTimer('fullscreen-controls', els.fullscreenControls);
                 }
               }
